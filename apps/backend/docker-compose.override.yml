@@ -1,6 +1,9 @@
 # Development overrides, loaded automatically by `docker compose`.
 services:
   backend:
+    # Its own tag, so a development build never replaces the runtime image that
+    # `docker compose -f docker-compose.yml` runs.
+    image: job-status-found-backend:dev
     build:
       target: dev
     # The dev server reloads in place, so the root filesystem stays writable
@@ -15,6 +18,11 @@ services:
         - action: sync
           path: ./tests
           target: /app/tests
+        - action: sync
+          path: ./migrations
+          target: /app/migrations
+        - action: rebuild
+          path: ./alembic.ini
         - action: rebuild
           path: ./uv.lock
         - action: rebuild

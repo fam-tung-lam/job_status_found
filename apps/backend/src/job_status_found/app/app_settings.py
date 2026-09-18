@@ -4,6 +4,9 @@ from functools import lru_cache
 
 from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from sqlalchemy import URL
+
+_DATABASE_CONNECT_TIMEOUT_SECONDS = 5
 
 
 class AppSettings(BaseSettings):
@@ -34,6 +37,27 @@ class AppSettings(BaseSettings):
 
     database_password: SecretStr | None = None
     """Password for `database_user`; `None` sends no password."""
+
+    @property
+    def database_url(self) -> URL:
+        """The URL of the configured PostgreSQL database for the psycopg driver.
+
+        The async application engine and the synchronous Alembic run share it,
+        because psycopg 3 provides both. The password stays verbatim and is
+        hidden when the URL is printed. A connection attempt gives up after
+        `_DATABASE_CONNECT_TIMEOUT_SECONDS`, instead of psycopg's default of
+        130 seconds.
+        """
+        password = self.database_password
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username=self.database_user,
+            password=password.get_secret_value() if password is not None else None,
+            host=self.database_host,
+            port=self.database_port,
+            database=self.database_name,
+            query={"connect_timeout": str(_DATABASE_CONNECT_TIMEOUT_SECONDS)},
+        )
 
 
 @lru_cache

@@ -7,24 +7,26 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from job_status_found.app.app_settings import get_settings
+from job_status_found.db.db import open_database
 from job_status_found.features.health.presentation.http.health_controller import (
     router as health_router,
 )
 
 
 @asynccontextmanager
-async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Own application-wide resources for the life of the process.
 
     Acquire shared clients and pools before `yield` and close them after it.
 
     Args:
-        _app: The application being started.
+        app: The application being started.
 
     Yields:
         Control to FastAPI while the application serves requests.
     """
-    yield
+    async with open_database(app, get_settings().database_url):
+        yield
 
 
 def create_app() -> FastAPI:

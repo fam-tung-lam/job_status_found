@@ -58,6 +58,10 @@ FROM base AS runtime
 # Nothing installs packages at runtime.
 RUN pip uninstall --yes pip
 COPY --from=builder /app/.venv /app/.venv
+# The revisions ship with the image, so `alembic upgrade head` runs where the
+# code that needs the schema runs.
+COPY alembic.ini ./
+COPY migrations ./migrations
 USER 10001:10001
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=3s --start-period=15s --start-interval=1s --retries=3 \
