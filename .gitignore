@@ -1,0 +1,11 @@
+# IDE
+.idea/
+
+# Local
+local/
+
+# Agent
+.firecrawl/
+
+# Secret
+.env
