@@ -1,18 +1,6 @@
 {
   "version": 1,
   "skills": {
-    "ptlam-agent-os-code-style-dart-flutter": {
-      "source": "fam-tung-lam/ptlam-agent-plugin",
-      "sourceType": "github",
-      "skillPath": "skills/ptlam-agent-os-code-style-dart-flutter/SKILL.md",
-      "computedHash": "5db4c8c48627b5d9acca77ab9924c9491d7a6d491c5ecd67db9e03793b6239cc"
-    },
-    "ptlam-code-style-python-fastapi": {
-      "source": "fam-tung-lam/ptlam-agent-plugin",
-      "sourceType": "github",
-      "skillPath": "skills/ptlam-code-style-python-fastapi/SKILL.md",
-      "computedHash": "eab9e98fdb3e0bd1b5bdae2f6c0ee16d8bc182bcafca5b581e93f59d5b9fa883"
-    },
     "ptlam-creating-spec": {
       "source": "fam-tung-lam/ptlam-agent-plugin",
       "sourceType": "github",
