@@ -15,7 +15,7 @@
 ## Context
 
 - A session is one sign-in on one device (ERD).
-- Index `sessions (user_id) WHERE revoked_at IS NULL` serves the list (ERD).
+- Index `sessions (user_id)` serves the list (ERD).
 - Every repository method that touches user data takes `owner_id`, and the SQL
   filters by it. Another user's session is therefore a 404, and its existence
   does not leak (§8 rule 3).
