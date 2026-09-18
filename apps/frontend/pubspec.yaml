@@ -29,3 +29,15 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # The design system's typeface. Its license, assets/fonts/geist/OFL.txt,
+  # must stay beside the font files.
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/geist/Geist-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/geist/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/geist/Geist-SemiBold.ttf
+          weight: 600

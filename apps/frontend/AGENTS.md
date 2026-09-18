@@ -46,6 +46,16 @@ Localization rules:
   sealed `JobStatusFoundHttpClientException`, imported from
   `job_status_found_http_client.dart`, never from `src/`. That folder imports
   nothing else from the app, so it can become its own package.
+- All visual values come from `lib/packages/job_status_found_design_system/`,
+  imported from `job_status_found_design_system.dart`, never from `src/`. Its
+  `README.md` maps the folder. `lib/app/app.dart` installs `AppTheme.light`
+  and `AppTheme.dark`. A feature reads colors from `AppColors.of(context)` and
+  distances, radii, text styles, shadows, and durations from the tokens, such
+  as `AppSpacing`. A `Color(0x…)`, `Colors.*`, `TextStyle(...)`, or bare
+  padding number in a feature is a defect; add the missing value to the design
+  system instead. That folder imports nothing else from the app.
+- A widget two features render goes in the design system's `src/components/`
+  as `App<Name>`, with a preview in `src/previews/` and a test.
 
 ## Structure
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:job_status_found/features/health/health.dart';
 import 'package:job_status_found/features/localization/localization.dart';
+import 'package:job_status_found/packages/job_status_found_design_system/job_status_found_design_system.dart';
 
 /// The app's start page, which shows the backend's health for now.
 ///
@@ -19,8 +20,11 @@ class const HomePage({
       appBar: AppBar(title: Text(AppStrings.of(context).home.pageTitle)),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: HealthStatusView(checkHealthUseCase: checkHealthUseCase),
+          padding: const EdgeInsets.all(AppSpacing.xl),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: AppSizes.proseMaxWidth),
+            child: HealthStatusView(checkHealthUseCase: checkHealthUseCase),
+          ),
         ),
       ),
     );

@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:job_status_found/features/health/application/use_cases/check_health_use_case.dart';
 import 'package:job_status_found/features/health/infrastructure/adapters/api_health_repository.dart';
@@ -66,7 +65,7 @@ void main() {
       );
 
       // When: the user asks to check again.
-      await tester.tap(find.widgetWithText(FilledButton, 'Check again'));
+      await tester.tap(find.text('Check again'));
       await tester.pump();
 
       // Then: the view says the backend is healthy.
