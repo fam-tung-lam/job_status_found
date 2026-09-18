@@ -1,0 +1,22 @@
+# Secrets and local configuration never enter the build context.
+.env
+.env.*
+!.env.example
+
+# Host environment and tool caches
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Not needed inside an image
+.git/
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
+AGENTS.md
+CLAUDE.md

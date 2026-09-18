@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -18,6 +19,21 @@ class AppSettings(BaseSettings):
 
     cors_allow_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
     """Browser origins allowed to call the API; defaults to any local development port."""
+
+    database_host: str = "localhost"
+    """PostgreSQL server host name."""
+
+    database_port: int = 5432
+    """PostgreSQL server TCP port."""
+
+    database_name: str = "job_status_found"
+    """PostgreSQL database name."""
+
+    database_user: str = "job_status_found"
+    """PostgreSQL role the service connects as."""
+
+    database_password: SecretStr | None = None
+    """Password for `database_user`; `None` sends no password."""
 
 
 @lru_cache

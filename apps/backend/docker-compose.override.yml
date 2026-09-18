@@ -1,0 +1,27 @@
+# Development overrides, loaded automatically by `docker compose`.
+services:
+  backend:
+    build:
+      target: dev
+    # The dev server reloads in place, so the root filesystem stays writable
+    # for synced source files.
+    read_only: false
+    restart: "no"
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: sync
+          path: ./tests
+          target: /app/tests
+        - action: rebuild
+          path: ./uv.lock
+        - action: rebuild
+          path: ./pyproject.toml
+
+  postgres:
+    # Reachable from the host for a backend started with `uv run`, and for SQL clients.
+    ports:
+      - "127.0.0.1:${JSF_DATABASE_PORT:-5432}:5432"
+    restart: "no"

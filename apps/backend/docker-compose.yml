@@ -1,0 +1,75 @@
+# Production-like stack: the hardened runtime image plus PostgreSQL.
+# `docker-compose.override.yml` layers the development setup on top and loads
+# automatically; pass `-f docker-compose.yml` to run this file alone.
+name: job-status-found
+
+# The default `json-file` driver never rotates, so cap what each container keeps.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: 10m
+    max-file: "3"
+
+services:
+  backend:
+    build:
+      context: .
+      target: runtime
+    environment:
+      # Inside the Compose network PostgreSQL is always `postgres:5432`,
+      # whatever `JSF_DATABASE_PORT` publishes on the host.
+      JSF_DATABASE_HOST: postgres
+      JSF_DATABASE_PORT: 5432
+      JSF_DATABASE_NAME: ${JSF_DATABASE_NAME:?set in .env}
+      JSF_DATABASE_USER: ${JSF_DATABASE_USER:?set in .env}
+      JSF_DATABASE_PASSWORD: ${JSF_DATABASE_PASSWORD:?set in .env}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    logging: *default-logging
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:18.6-trixie@sha256:4ef4dbc939d61acea57712655ddb4b4ab27419c913f94cca0cd57cb3ea3c2280
+    environment:
+      # The image only understands its own `POSTGRES_*` names, so they are
+      # filled from the same `JSF_DATABASE_*` values the backend reads.
+      POSTGRES_USER: ${JSF_DATABASE_USER:?set in .env}
+      POSTGRES_PASSWORD: ${JSF_DATABASE_PASSWORD:?set in .env}
+      POSTGRES_DB: ${JSF_DATABASE_NAME:?set in .env}
+    volumes:
+      # PostgreSQL 18+ images keep the versioned data directory under this path.
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      # Checks over TCP: during first initialisation the image runs a temporary
+      # server on the Unix socket only, which would report ready too early.
+      test: ["CMD-SHELL", "pg_isready --host=127.0.0.1 --username=\"$${POSTGRES_USER}\" --dbname=\"$${POSTGRES_DB}\""]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 30s
+      start_interval: 1s
+    security_opt:
+      - no-new-privileges:true
+    # The 64 MB default is too small for parallel query workers.
+    shm_size: 256m
+    mem_limit: 1g
+    cpus: 2.0
+    pids_limit: 256
+    logging: *default-logging
+    restart: unless-stopped
+
+volumes:
+  postgres-data:

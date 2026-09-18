@@ -1,0 +1,20 @@
+# Keeps the pinned container image tags and digests current.
+version: 2
+updates:
+  - package-ecosystem: docker
+    directory: /apps/backend
+    schedule:
+      interval: weekly
+    ignore:
+      # The uv image must stay inside the `uv_build` range in pyproject.toml.
+      - dependency-name: astral-sh/uv
+        versions: [">=0.11.0"]
+
+  - package-ecosystem: docker-compose
+    directory: /apps/backend
+    schedule:
+      interval: weekly
+    ignore:
+      # A PostgreSQL major upgrade needs a data migration, so do it by hand.
+      - dependency-name: postgres
+        update-types: ["version-update:semver-major"]
