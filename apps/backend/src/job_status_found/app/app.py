@@ -4,6 +4,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from job_status_found.app.settings import get_settings
 from job_status_found.features.health.presentation.http.health_controller import (
@@ -34,5 +35,10 @@ def create_app() -> FastAPI:
     """
     settings = get_settings()
     app = FastAPI(title=settings.app_name, version=settings.version, lifespan=lifespan)
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=settings.cors_allow_origin_regex,
+        allow_methods=["GET"],
+    )
     app.include_router(health_router)
     return app

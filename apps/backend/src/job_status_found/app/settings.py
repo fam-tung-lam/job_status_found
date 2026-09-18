@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     version: str = "0.1.0"
     """Build version shown in OpenAPI."""
 
+    cors_allow_origin_regex: str = r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$"
+    """Browser origins allowed to call the API; defaults to any local development port."""
+
 
 @lru_cache
 def get_settings() -> Settings:
