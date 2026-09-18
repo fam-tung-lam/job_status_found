@@ -101,8 +101,11 @@ Localization rules:
   parameter, in `lib/` and `test/`, also has a concise `///` comment. It says
   what the declaration is for, so a reader understands it without reading the
   body. No lint checks this, so check it in review.
+- Tests live in `test/{unit,widget,integration}/` followed by the file's path
+  under `lib/`, as `<file>_test.dart`, such as
+  `test/integration/features/home/presentation/pages/home_page_test.dart`.
 - Shared test doubles live in `test/test_doubles/` and shared helpers in
-  `test/helpers/`.
+  `test/helpers/`; both serve every level.
 - Acquire and release test resources in `setUp`, `tearDown`, `setUpAll`, and
   `tearDownAll`. Never use `addTearDown`.
 - Create every mock with `mocktail`; never hand-write a fake or stub class.

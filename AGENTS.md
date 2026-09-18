@@ -151,7 +151,13 @@ Expand an alias only when the entire user message is that alias:
 
 ## Tests
 
-- Test paths mirror source paths, split by level: `<area>/unit/...` and
-  `<area>/integration/...`.
+- Each app's test folder has one top-level folder per test level, and below it
+  the path mirrors the source path: `<level>/<source path>/`. The frontend
+  levels are `unit`, `widget`, and `integration`. The backend levels are
+  `unit` and `integration`.
+- A unit test runs one class or function without a widget tree or an HTTP
+  client. A widget test renders one widget alone and checks only its UI, with
+  no real collaborators behind it. An integration test runs several real
+  components together and replaces only the lowest API outside our control.
 - Tests follow Given-When-Then with explicit `# Given:`/`// Given:`,
   `When:`, and `Then:` comments.

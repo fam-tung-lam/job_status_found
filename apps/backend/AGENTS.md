@@ -28,8 +28,9 @@
 - HTTP adapters live in `presentation/http/`: `<name>_controller.py` and a
   Pydantic `<Subject>Response` model per response body, such as
   `HealthStatusResponse`. Use cases never return these models.
-- Tests live in `tests/features/<name>/{unit,integration}/<layer path>/` as
-  `test_<module>.py`.
+- Tests live in `tests/{unit,integration}/` followed by the module's path
+  under `src/job_status_found/`, as `test_<module>.py`, such as
+  `tests/integration/features/health/presentation/http/test_health_controller.py`.
 
 ## Checks
 
