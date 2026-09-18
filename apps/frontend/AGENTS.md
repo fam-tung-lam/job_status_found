@@ -12,14 +12,14 @@
 Do not add any package that needs `build_runner` or another code generator.
 Rebuilds slow down every edit-and-check loop. For example, use these instead:
 
-| Need                   | Use                                                                 |
-| ---------------------- | ------------------------------------------------------------------- |
-| Value equality         | `equatable`, plus a hand-written `copyWith` where needed            |
-| Unions, events, states | Dart 3 `sealed` classes with exhaustive `switch`                    |
-| JSON                   | Hand-written `fromJson` and `toJson` on DTOs, with round-trip tests |
-| Routing                | Plain `go_router` with path and parameter constants                 |
-| Test doubles           | `mocktail`                                                          |
-| Localization           | Own `sealed` strings class with one subclass per language           |
+| Need                   | Use                                                                                                                                |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Value equality         | `equatable`, plus a hand-written `copyWith` where needed                                                                           |
+| Unions, events, states | Dart 3 `sealed` classes with exhaustive `switch`                                                                                   |
+| JSON                   | Hand-written `fromJson` on DTOs the app reads, `toJson` on DTOs it sends; a round-trip test only for a DTO it both reads and sends |
+| Routing                | Plain `go_router` with path and parameter constants                                                                                |
+| Test doubles           | `mocktail`                                                                                                                         |
+| Localization           | Own `sealed` strings class with one subclass per language                                                                          |
 
 Localization rules:
 
@@ -103,7 +103,7 @@ Localization rules:
   body. No lint checks this, so check it in review.
 - Tests live in `test/{unit,widget,integration}/` followed by the file's path
   under `lib/`, as `<file>_test.dart`, such as
-  `test/integration/features/home/presentation/pages/home_page_test.dart`.
+  `test/integration/features/health/presentation/widgets/health_status_view_test.dart`.
 - Shared test doubles live in `test/test_doubles/` and shared helpers in
   `test/helpers/`; both serve every level.
 - Acquire and release test resources in `setUp`, `tearDown`, `setUpAll`, and

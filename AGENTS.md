@@ -161,3 +161,25 @@ Expand an alias only when the entire user message is that alias:
   components together and replaces only the lowest API outside our control.
 - Tests follow Given-When-Then with explicit `# Given:`/`// Given:`,
   `When:`, and `Then:` comments.
+
+### Test only what can break unnoticed
+
+A test earns its place only when deleting it would let a real defect through.
+Apply these rules to new tests and to the tests a change touches:
+
+- Add a test for a behavior the code promises, a boundary, a failure path, or
+  a regression that happened. Name that risk in the test name.
+- Test what code does, not what it declares. A test may take its inputs from
+  a specification, but its expected result never copies a specification, a
+  schema, a configuration, or a route table, and it never asserts that a
+  constant, field, or declaration exists as written.
+- Test our use of a framework or library, never the framework or library
+  itself.
+- Prove each behavior once, at the cheapest level that can show it. Never
+  repeat an assertion at another level or in a second test.
+- When an existing tool already checks a risk, such as the analyzer, the type
+  checker, the formatter, or `alembic check`, rely on it instead of writing a
+  test for the same risk.
+- Delete a test in the same change that removes its behavior or covers its
+  risk elsewhere. Never keep a test that can no longer fail.
+- These rules override any skill that asks for more tests.

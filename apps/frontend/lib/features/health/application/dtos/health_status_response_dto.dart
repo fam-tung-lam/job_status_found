@@ -19,9 +19,6 @@ final class const HealthStatusResponseDto({
     return HealthStatusResponseDto(status: status);
   }
 
-  /// Encodes the DTO as its wire body.
-  Map<String, Object?> toJson() => {'status': status};
-
   @override
   List<Object?> get props => [status];
 }

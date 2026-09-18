@@ -16,16 +16,15 @@ void main() {
   });
 
   group('configureDependencies', () {
-    test('makes the health check resolvable from its feature scope', () {
+    test('makes the health check resolvable', () {
       // Given: settings that point at the local backend.
       final settings = AppSettings.fromApiBaseUrl('http://localhost:8000');
 
       // When: the app registers its dependencies.
       configureDependencies(getIt, settings);
 
-      // Then: the health feature has its scope, and the home page's health
-      // check use case can be built from the container.
-      expect(getIt.hasScope(healthFeatScopeName), isTrue);
+      // Then: the home page's health check use case can be built from the
+      // container.
       expect(getIt<CheckHealthUseCase>(), isA<CheckHealthUseCase>());
     });
   });
