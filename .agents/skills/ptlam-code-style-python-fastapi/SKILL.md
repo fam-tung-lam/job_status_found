@@ -159,7 +159,7 @@ handoff seams.
    the stored or queued effect through the ASGI app.
 8. Run checks narrow to broad: focused tests, configured checks on changed
    files, then project-wide gates. Inspect OpenAPI for a public contract change,
-   and run the Alembic-metadata and import-boundary checks when affected.
+   and run `alembic check` and the import-boundary checks when affected.
 9. In change mode, run the package build and supported version matrix when
    distribution or compatibility is affected. Install a changed distributed
    package's built artifact in a throwaway environment and smoke-test its
