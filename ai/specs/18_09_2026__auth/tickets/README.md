@@ -1,7 +1,7 @@
 # Ticket plan: Authentication and authorization
 
 - Status: blocked
-- Updated: 2026-09-18 21:05 CEST
+- Updated: 2026-09-18 23:17 CEST
 - Source spec:
   [18_09_2026__auth-specification.md](../18_09_2026__auth-specification.md),
   whole document ("Authentication and authorization specification"), with
@@ -22,8 +22,9 @@ ticket (T-09, T-10, T-25). Phase 2 adds password change, session revocation,
 throttles, the breach check, and the purge task. Phase 3 adds Google through
 the browser flow, then the operations that need a fresh credential proof.
 Phase 4 adds the Android native sheet and email change. Seven tickets wait on a
-spec decision (DEC-1 to DEC-6), and T-25 waits on one through T-19. The other
-18 tickets can be built in file order now, once DEC-0 confirms the spec.
+spec decision (DEC-1 to DEC-6), and T-25 waits on one through T-19. T-01 is
+implemented. The other 17 tickets can be built in file order, once DEC-0
+confirms the spec.
 
 ## Dependency map
 
@@ -135,10 +136,14 @@ flowchart LR
 ### Constraints every ticket follows
 
 - **Structure.** Backend code lives in `features/auth/` with the layers of
-  §10; shell files live in `app/`. App code lives in `lib/features/auth/` with
-  the layers of §11.1. Naming follows the root `AGENTS.md`:
-  `<Verb><Noun>UseCase` with one `invoke`, `<Operation>Failure` with one
-  variant per cause, and state names that say what is known.
+  §10; shell files live in `app/` and `db/`. App code lives in
+  `lib/features/auth/` with the layers of §11.1. Naming follows the root
+  `AGENTS.md`: `<Verb><Noun>UseCase` with one `invoke`, `<Operation>Failure`
+  with one variant per cause, and state names that say what is known.
+- **Schema.** Revision `0001` (T-01) creates every auth table. A later ticket
+  changes the schema only through a new Alembic revision and the matching ERD
+  update. Mapped tables declare columns by annotation, with keys,
+  constraints, and indexes in `__table_args__` (`apps/backend/AGENTS.md`).
 - **Transactions and mail.** Each write use case owns one transaction and
   commits once. Email goes out after the commit; a send failure is logged, and
   the person uses "resend" (§10).
@@ -201,6 +206,7 @@ starts.
 | Account-settings pages (password change, sessions, link, unlink, re-authentication, deletion, email change) | §11 specifies no page, so T-12, T-13, T-20 to T-24, and T-26 ship as API only. Needed before the first App Store release (guideline 5.1.1(v) requires in-app deletion) and because `account_exists_link_required` tells people to use account settings | §6.5, §6.6, §11.2 |
 | Web host configuration                                         | First web deployment: rewrite unknown paths to `index.html`, send `Referrer-Policy: no-referrer`, and terminate HTTPS with HSTS at the reverse proxy. The repository holds no host configuration | §9, §11.1 |
 | Writer for `users.locale`                                      | No behavior in the spec sets it; the column stays null                                                       | ERD              |
+| Least-privilege database role for the app                      | First deployment: the app and migrations connect as the PostgreSQL bootstrap superuser. Create a separate application role and keep the owner role for migrations and the throwaway-database tests | §9 |
 | Remove-password use case                                       | The ERD names it as an enforcer of "at least one sign-in method", but the spec neither lists nor exposes it. T-21 is the only enforcer | ERD, §10 |
 
 ### Risks
@@ -225,7 +231,7 @@ remove the matching `DEC` from the waiting tickets.
 
 | ID    | Decision needed                                                                                                                                                                                                                                                                                                                              | Owner | Waiting tickets                  | Consequence until decided                                                                                  |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----- | -------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| DEC-0 | Confirm the spec as ready. It says "Status: proposed, not implemented" and has no behavior IDs, so this plan traces to section numbers instead.                                                                                                                                                                                              | PTLam | All, provisionally               | Any spec revision can change tickets that are already in progress                                          |
+| DEC-0 | Confirm the spec as ready. It says "Status: proposed" and has no behavior IDs, so this plan traces to section numbers instead.                                                                                                                                                                                                                | PTLam | All, provisionally               | Any spec revision can change tickets that are already in progress                                          |
 | DEC-1 | Specify the email verification page: elements and copy; the message for `verification_code_invalid`, including after the fifth wrong code consumes the challenge; the resend control and any countdown; and the `remember_me` value the confirm request sends on the web when the page opens from sign-in. §11.1 names the page, but §11.2 and §11.3 do not specify it. | PTLam | T-08; T-19 and T-25 through it   | New visitors cannot register in the app, and sign-in's `email_verification_required` has no page to open    |
 | DEC-2 | Specify the sign-out control: which page shows it, where, and its label. §11.1 lists `sign_out_use_case.dart` without a control.                                                                                                                                                                                                             | PTLam | T-11                             | The app signs out only when a refresh fails                                                                |
 | DEC-3 | Decide whether the sign-in page shows the legal line under the Google button, because that button can also create an account. §15 recommends showing it; §11.2 row 10 shows it on sign-up only.                                                                                                                                             | PTLam | T-19; T-25 through it            | Google sign-in cannot ship in the app                                                                      |

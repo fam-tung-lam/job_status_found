@@ -1,7 +1,8 @@
 # Authentication and authorization specification
 
-Status: proposed, not implemented. Package versions and provider facts were
-verified on 2026-09-18; section 15 lists what is still unverified.
+Status: proposed. Only the schema and its first migration are implemented
+(ticket T-01). Package versions and provider facts were verified on
+2026-09-18; section 15 lists what is still unverified.
 
 Sign-up and sign-in with email and password and Google, for
 the Flutter app (iOS, Android, web) and the FastAPI backend. The sign-in and
@@ -586,10 +587,12 @@ filter, and these five rules stay.
 
 ## 10. Backend implementation
 
-The shell gains `app/db.py` (declarative `Base`, async engine, session factory,
-request session dependency), `app/alembic_metadata.py`, `app/authentication.py`
-(the three guards from section 8, built on the auth facade), plus `alembic.ini`
-and `migrations/`. The first revision creates the eight tables.
+The shell gains a `db/` package beside `app/`: `db/db.py` (declarative `Base`
+with the column type map, async engine lifespan, session factory, request
+session dependency) and `db/alembic_metadata.py` (the metadata Alembic
+migrates). It also gains `app/authentication.py` (the three guards from section
+8, built on the auth facade), plus `alembic.ini` and `migrations/`. The first
+revision, `0001`, creates the eight tables.
 
 ```text
 features/auth/
@@ -608,7 +611,7 @@ features/auth/
 │   │                      # oidc_id_token_verifier.py, authlib_authorization_code_client.py,
 │   │                      # smtp_auth_email_sender.py,
 │   │                      # pwned_passwords_breach_checker.py, limits_request_throttle.py
-│   └── persistence/models/  # one <name>_table.py per table in auth-erd.md
+│   └── db/tables/         # one <name>_table.py per table in auth-erd.md
 └── presentation/
     ├── http/              # auth_controller.py, oauth_controller.py, sessions_controller.py,
     │                      # and one <Subject>Request/Response per body
@@ -667,6 +670,10 @@ harmless.
 
 **Compose.** `docker-compose.override.yml` gains Mailpit for development mail;
 `../../../.env.example` gains the `JSF_AUTH_*` names with placeholder values.
+Migrations run as a one-off `alembic upgrade head` from the host, the
+development container, or the runtime image, which ships `alembic.ini` and
+`migrations/`. The application does not migrate at startup, and it starts
+without a reachable database because the engine connects on first use.
 
 ## 11. Frontend implementation
 
@@ -947,8 +954,10 @@ at the lowest boundary we do not control.
 - **Backend integration.** Controllers through the ASGI app against PostgreSQL
   from Compose. `OidcIdTokenVerifier` against tokens signed by a test RSA key
   and a stubbed JWKS response: wrong `iss`, wrong `aud`, expired, wrong nonce,
-  unknown `kid`, and `alg=none` must all fail. The metadata contract test from
-  the persistence convention lists the eight tables.
+  unknown `kid`, and `alg=none` must all fail. Each migration revision runs
+  against a throwaway database: upgrade, downgrade, and the rules PostgreSQL
+  enforces. `alembic check` in the backend checks catches drift between the
+  mapped tables and the revisions; no test restates the ERD.
 - **Frontend.** Paths follow `test/{unit,widget,integration}/` plus the file's
   path under `lib/`. Unit: cubits with `bloc_test`, DTO round trips. Widget:
   each new design system component, and each form for the behavior tables in

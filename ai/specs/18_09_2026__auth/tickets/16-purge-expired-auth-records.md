@@ -19,6 +19,9 @@ requested.
 - Every foreign key to `users` cascades, except `auth_events.user_id`, which
   becomes null, so the audit trail outlives the account without naming it
   (ERD).
+- Deleting a session deletes its refresh tokens, and deleting a parent token
+  only clears its child's `parent_token_id`, so the schedule's deletes need no
+  ordering (ERD).
 - The task is idempotent, so overlapping runs are harmless (§10).
 - The rows it deletes come from later tickets, but the task needs only the
   schema; seeded rows make it observable now.
@@ -34,6 +37,9 @@ requested.
 - `presentation/tasks/purge_auth_records.py`, runnable with `python -m` (§10).
 - An hourly schedule from the host's scheduler or a small Compose service
   (§10).
+- An index for each retention condition the deletes would otherwise answer
+  with a full table scan, such as `refresh_tokens (expires_at)` and
+  `auth_events (created_at)`, added through a new revision and the ERD.
 
 ## Out of scope
 
@@ -48,6 +54,7 @@ requested.
 - Two runs in a row, or two overlapping runs, end in the same state without an
   error (§10).
 - An hourly run is configured (§10).
+- Each retention delete uses an index instead of a full table scan.
 
 ## Evidence required
 
