@@ -17,6 +17,20 @@
 - Docstrings are read in code and IDE hovers only; there is no generated
   documentation site.
 
+## Structure
+
+- `src/job_status_found/app/` holds the composition root `app.py` and
+  `app_settings.py`.
+- A feature's use cases live in `application/use_cases/`, such as
+  `check_health_use_case.py` with `CheckHealthUseCase`.
+- `features/<name>/di.py` provides each use case as
+  `get_<verb>_<noun>_use_case`, injected with `Depends`.
+- HTTP adapters live in `presentation/http/`: `<name>_controller.py` and a
+  Pydantic `<Subject>Response` model per response body, such as
+  `HealthStatusResponse`. Use cases never return these models.
+- Tests live in `tests/features/<name>/{unit,integration}/<layer path>/` as
+  `test_<module>.py`.
+
 ## Checks
 
 ```shell

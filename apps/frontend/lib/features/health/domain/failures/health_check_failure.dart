@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 
-/// A health check that could not produce a health status.
+/// A health check that could not confirm the backend is healthy.
 ///
 /// Each variant names what the user can do about it.
-sealed class const HealthFailure() extends Equatable implements Exception {
+sealed class const HealthCheckFailure() extends Equatable implements Exception {
   /// Creates the failure.
   this;
 
@@ -13,14 +13,14 @@ sealed class const HealthFailure() extends Equatable implements Exception {
 
 /// The backend did not answer, so it is probably not running or not reachable
 /// at the configured URL.
-final class const HealthUnreachable() extends HealthFailure {
+final class const HealthCheckBackendUnreachable() extends HealthCheckFailure {
   /// Creates the failure.
   this;
 }
 
 /// The backend answered with a status or body this app does not understand,
 /// so the app and backend versions probably disagree.
-final class const HealthUnexpectedResponse() extends HealthFailure {
+final class const HealthCheckUnexpectedResponse() extends HealthCheckFailure {
   /// Creates the failure.
   this;
 }

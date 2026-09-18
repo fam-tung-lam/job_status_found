@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get_it/get_it.dart';
+import 'package:job_status_found/app/app_settings.dart';
 import 'package:job_status_found/features/health/health.dart';
 import 'package:job_status_found/packages/job_status_found_http_client/job_status_found_http_client.dart';
-import 'package:job_status_found/settings.dart';
 
-import '../test_doubles/mock_job_status_found_http_client.dart';
+import '../../../test_doubles/mock_job_status_found_http_client.dart';
 
 void main() {
   late GetIt getIt;

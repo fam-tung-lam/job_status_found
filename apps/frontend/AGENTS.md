@@ -47,10 +47,33 @@ Localization rules:
   `job_status_found_http_client.dart`, never from `src/`. That folder imports
   nothing else from the app, so it can become its own package.
 
+## Structure
+
+- `lib/app/` holds `app.dart`, `app_router.dart`, `di.dart`, and
+  `app_settings.dart` with `AppSettings`. `app_router.dart` keeps one
+  `<Page>Route` constants class per page, such as `HomeRoute`.
+- A page is a routed screen with its own `Scaffold`: `<Name>Page` in
+  `presentation/pages/<name>_page.dart` of the feature that owns the screen.
+  `HomePage` in the `home` feature is the start page.
+- A feature shares UI with other features as a widget in
+  `presentation/widgets/`, such as `HealthStatusView`, which `HomePage`
+  composes. A widget does not build a `Scaffold`.
+- `lib/` code imports another feature only through its barrel
+  `lib/features/<name>/<name>.dart`.
+- A cubit is `<Subject>Cubit` and its sealed state is `<Subject>State`, such as
+  `HealthStatusCubit` and `HealthStatusState`. State variants follow the root
+  naming rule: `HealthStatusNotChecked`, `HealthStatusChecking`,
+  `HealthStatusHealthy`, and `HealthStatusCheckFailed`.
+- Failures are sealed classes in `domain/failures/` that implement
+  `Exception`.
+- Each user-visible string group has its own sealed class in
+  `lib/features/localization/i18n/`, such as `HealthStrings` and
+  `HomeStrings`, reached through `AppStrings`.
+
 ## Code
 
-- Each feature has `lib/features/<name>/di.dart` with a `<name>FeatScopeName`
-  constant and a `GetIt` extension method
+- Each feature that registers dependencies has `lib/features/<name>/di.dart`
+  with a `<name>FeatScopeName` constant and a `GetIt` extension method
   `push<Name>FeatScope(AppSettings settings)`, such as `pushHealthFeatScope`.
   The method pushes a final scope named by the constant and registers only
   that feature's dependencies in its `init`. The feature's `<name>.dart`
@@ -60,15 +83,16 @@ Localization rules:
   code instead of adding `// ignore:`.
 - `analysis_options.yaml` adds `use_primary_constructors` and
   `use_declaring_parameters`: declare the constructor in the class header,
-  such as `final class const HealthLoaded(final HealthStatus status)`, and
-  document it on a `this;` body. `fvm dart fix --apply .` converts older code.
+  such as
+  `final class const HealthStatusCheckFailed(final HealthCheckFailure failure)`,
+  and document it on a `this;` body. `fvm dart fix --apply .` converts older code.
 - Every public member has a dartdoc comment (`public_member_api_docs`).
 - Every private class, constructor, method, function, field, and declaring
   parameter, in `lib/` and `test/`, also has a concise `///` comment. It says
   what the declaration is for, so a reader understands it without reading the
   body. No lint checks this, so check it in review.
-- Tests follow Given-When-Then with explicit `// Given:`, `// When:`, and
-  `// Then:` comments.
+- Shared test doubles live in `test/test_doubles/` and shared helpers in
+  `test/helpers/`.
 - Acquire and release test resources in `setUp`, `tearDown`, `setUpAll`, and
   `tearDownAll`. Never use `addTearDown`.
 - Create every mock with `mocktail`; never hand-write a fake or stub class.

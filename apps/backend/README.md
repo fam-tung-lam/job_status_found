@@ -20,7 +20,7 @@ uv run pytest --cov
 Docstring rules live in [AGENTS.md](AGENTS.md).
 
 Settings are read from `JSF_`-prefixed environment variables or `.env`
-(see `src/job_status_found/app/settings.py`).
+(see `src/job_status_found/app/app_settings.py`).
 
 Browsers may call the API only from origins matching
 `JSF_CORS_ALLOW_ORIGIN_REGEX`. The default allows any `localhost` or

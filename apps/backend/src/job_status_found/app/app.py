@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from job_status_found.app.settings import get_settings
+from job_status_found.app.app_settings import get_settings
 from job_status_found.features.health.presentation.http.health_controller import (
     router as health_router,
 )

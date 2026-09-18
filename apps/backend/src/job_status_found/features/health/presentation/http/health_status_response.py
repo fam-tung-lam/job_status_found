@@ -1,11 +1,11 @@
-"""Health status returned by the health check."""
+"""Response body of the health endpoint."""
 
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
 
-class HealthStatus(BaseModel):
+class HealthStatusResponse(BaseModel):
     """Liveness result of the service."""
 
     model_config = ConfigDict(

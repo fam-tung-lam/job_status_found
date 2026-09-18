@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:job_status_found/features/localization/i18n/health_strings.dart';
+import 'package:job_status_found/features/localization/i18n/home_strings.dart';
 
 /// Every user-visible string in the app, grouped by feature.
 sealed class const AppStrings() {
@@ -16,8 +17,11 @@ sealed class const AppStrings() {
   /// The app name shown by the operating system.
   String get appTitle;
 
-  /// Text shown on the backend health page.
+  /// Text shown by the backend health status view.
   HealthStrings get health;
+
+  /// Text shown on the home page.
+  HomeStrings get home;
 }
 
 /// English [AppStrings].
@@ -30,4 +34,7 @@ final class const EnAppStrings() extends AppStrings {
 
   @override
   HealthStrings get health => const EnHealthStrings();
+
+  @override
+  HomeStrings get home => const EnHomeStrings();
 }

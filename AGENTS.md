@@ -116,3 +116,42 @@ Expand an alias only when the entire user message is that alias:
 | `ref` | Apply the reusable reference codes defined above.                    |
 | `ev`  | Apply the evidence rules and name what remains unverified.           |
 | `nxt` | Return the next action only, in one line and without context.        |
+
+# Project conventions
+
+## Layout
+
+- `apps/backend/` is the FastAPI service and `apps/frontend/` is the Flutter
+  app. Each has its own `AGENTS.md` with stack rules and checks.
+- Code is split by feature under `features/<name>/`. Inside a feature, layers
+  are `domain`, `application` (use cases and ports), `infrastructure`, and
+  `presentation`. A feature holds only the layers it needs; the frontend
+  `home` feature, for example, is presentation only.
+- The app shell lives in `app/`: the composition root, settings, and routing.
+
+## Naming
+
+- Names are specific and understandable on their own. A reader should know
+  what a type holds or does without opening it.
+- A use case class is `<Verb><Noun>UseCase`, such as `CheckHealthUseCase`, in
+  `<verb>_<noun>_use_case.<ext>`. Its one public method is `invoke`, never
+  `execute`, `call`, or `run`.
+- A failure type is `<Operation>Failure`, such as `HealthCheckFailure`. Each
+  variant names the cause, such as `HealthCheckBackendUnreachable`.
+- A state names the subject and what is known about it, such as
+  `HealthStatusHealthy`. Do not use generic names such as `Initial`,
+  `Loading`, or `Loaded`.
+
+## Results and errors
+
+- An operation with a single success outcome returns `void` or `None` and
+  throws or raises a typed failure otherwise.
+- Do not add an enum or wrapper that has only one value. An HTTP body may still
+  carry a status field as part of the wire contract.
+
+## Tests
+
+- Test paths mirror source paths, split by level: `<area>/unit/...` and
+  `<area>/integration/...`.
+- Tests follow Given-When-Then with explicit `# Given:`/`// Given:`,
+  `When:`, and `Then:` comments.

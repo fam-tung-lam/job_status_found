@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:job_status_found/settings.dart';
+import 'package:job_status_found/app/app_settings.dart';
 
 void main() {
   group('AppSettings.fromApiBaseUrl', () {

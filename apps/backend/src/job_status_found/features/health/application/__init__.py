@@ -1,1 +1,1 @@
-"""Health application layer: DTOs and use cases."""
+"""Health application layer: use cases."""

@@ -1,10 +1,7 @@
-/// Text shown on the backend health page.
+/// Text shown by the backend health status view.
 sealed class const HealthStrings() {
   /// Creates the strings.
   this;
-
-  /// Title of the health page.
-  String get pageTitle;
 
   /// Shown while the app waits for the backend to answer.
   String get checkInProgress;
@@ -27,9 +24,6 @@ sealed class const HealthStrings() {
 final class const EnHealthStrings() extends HealthStrings {
   /// Creates the English strings.
   this;
-
-  @override
-  String get pageTitle => 'Backend status';
 
   @override
   String get checkInProgress => 'Checking the backend…';

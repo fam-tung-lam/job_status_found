@@ -5,7 +5,7 @@ from functools import lru_cache
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
-class Settings(BaseSettings):
+class AppSettings(BaseSettings):
     """Process configuration read from `JSF_`-prefixed environment variables."""
 
     model_config = SettingsConfigDict(env_prefix="JSF_", env_file=".env", extra="ignore")
@@ -21,10 +21,10 @@ class Settings(BaseSettings):
 
 
 @lru_cache
-def get_settings() -> Settings:
+def get_settings() -> AppSettings:
     """Return the process-wide settings, reading the environment on first call.
 
     Returns:
-        The cached `Settings` instance.
+        The cached `AppSettings` instance.
     """
-    return Settings()
+    return AppSettings()
