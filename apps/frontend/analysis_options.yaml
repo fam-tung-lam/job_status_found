@@ -9,3 +9,11 @@ analyzer:
     - android/**
     - ios/**
     - web/**
+
+linter:
+  rules:
+    # Not in very_good_analysis 11.0.0. Prefer Dart 3.13 primary constructors,
+    # declared in the class header, and declare each field as a primary
+    # constructor parameter instead of a separate field and `this.` parameter.
+    use_primary_constructors: true
+    use_declaring_parameters: true
