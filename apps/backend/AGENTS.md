@@ -5,15 +5,13 @@
 - Style: Google (`Args:`, `Returns:`, `Yields:`, `Raises:`, `Attributes:`,
   `Example:`). Do not mix NumPy or Sphinx field styles.
 - Every module, package, class, function, method, and property has a
-  docstring, public or private (`_name`), in `src/`, `migrations/`, and
-  `tests/`. So does every module constant and class attribute: an attribute
+  docstring, public or private (`_name`), in `src/` and `migrations/`. So does
+  every module constant and class attribute: an attribute
   docstring on the line after it, such as `_SMTP_TIMEOUT_SECONDS`. A private
   docstring is concise: one sentence on what it does or holds, then the
   reason when the code does not show it.
 - Instance attributes that `__init__` sets from its arguments are covered by
-  its `Args:` section. Test functions are named for their behavior and carry
-  Given-When-Then comments; test helpers take one-line docstrings without
-  `Args:` or `Returns:` sections.
+  its `Args:` section.
 - Do not repeat types; annotations carry them.
 - Property docstrings describe the value ("Whether...", "The..."), never start
   with a verb such as "Returns".
@@ -22,8 +20,7 @@
   `use_attribute_docstrings=True` so the text also reaches the JSON schema.
 - Enforced by Ruff `D` (convention `google`) plus preview rules `D420`, `D421`,
   and `DOC*`, selected by exact code in `pyproject.toml`. Ruff's `D` rules
-  check public names only, and `tests/` ignores `D` and `DOC`, so review
-  every private name and test helper for its docstring.
+  check public names only, so review every private name for its docstring.
 - Docstrings are read in code and IDE hovers only; there is no generated
   documentation site.
 
@@ -66,7 +63,7 @@
     `get_unit_of_work` provider in `core/di.py`. A feature's `di.py` injects
     it, so its repositories and its unit of work share one request session;
   - the `utc_now` helper and its `get_utc_now` provider, which a feature's
-    `di.py` injects, so an API test can control the time;
+    `di.py` injects, so callers can supply the clock;
   - the RFC 9457 error shape (schemas, response helpers, the 422 handler, and
     `ProblemDetailsFastAPI`, which documents them);
   - clients for external systems that several features use, in
@@ -125,7 +122,7 @@
     `self._hash_password(password)`.
   - `di.py` passes a helper directly, such as
     `generate_verification_code=generate_verification_code`. A helper that
-    needs the request, or that an API test must replace, gets a provider named
+    needs the request or request-scoped replacement gets a provider named
     `get_<helper>` instead, such as `get_hash_password`, which binds the
     lifespan's limiter, or `get_utc_now`.
   - A helper that gains state or a second operation becomes a port.
@@ -169,74 +166,9 @@
   Revisions live in `migrations/versions/`; read every operation of a
   generated revision before applying it.
 
-## Tests
+## Testing
 
-- Tests live in `tests/{unit,integration}/` followed by the module's path
-  under `src/job_status_found/`, as `test_<module>.py`, such as
-  `tests/integration/features/health/presentation/http/test_health_controller.py`.
-  A controller's test is named after its module, such as
-  `test_sign_up_controller.py`, and a schema's test sits under `schemas/`. A
-  revision's test mirrors its path under `migrations/`.
-- pytest runs with `--import-mode=importlib`, so a unit and an integration
-  test of one module share its `test_<module>.py` name. A test module never
-  imports another; shared fixtures go in the `conftest.py` of the nearest
-  folder that holds all their users, such as `tests/integration/`.
-- Every test double comes from pytest-mock's `mocker` fixture, never from
-  `unittest.mock` directly and never from a hand-written fake class:
-  - A port: `mocker.create_autospec(<Port>, instance=True)`, so a call that
-    does not match the port's signature fails.
-  - An injected helper: `mocker.stub(name="<helper>")`, or
-    `mocker.async_stub(name="<helper>")` for an async one, such as
-    `mocker.async_stub(name="hash_password")`. ty checks every call against
-    the use case's `Callable` type.
-  - A library function: `mocker.patch.object(<module>, "<name>",
-    autospec=True)` on the module the code under test looks it up from, such
-    as `mocker.patch.object(aiosmtplib, "send", autospec=True)`. `mocker`
-    undoes it after the test; never use `patch` as a decorator or context
-    manager, or start and stop it by hand.
-  - Matchers and recorders come from `mocker` too, such as `mocker.Mock()`
-    and `mocker.call`.
-- An API test runs a fresh `create_app()` through `TestClient` used as a
-  context manager, so the lifespan runs. It replaces a dependency only through
-  that app's `dependency_overrides`, such as `get_utc_now`, never by patching
-  the module that defines it. Environment settings go through
-  `monkeypatch.setenv` and a fixture that clears the cached getter, such as
-  `get_auth_settings.cache_clear()`, before and after the test.
-- Mock-based unit tests live in a `Test<Subject>` class whose autouse fixture
-  sets its mocks up explicitly:
-  - An `@pytest.fixture(autouse=True)` method `_set_up(self, mocker)` creates
-    fresh mocks as attributes, stubs what every test in the class shares, and
-    builds the subject by passing each mock directly by keyword, such as
-    `users=self.users`. Never bundle mocks into a holder object or build the
-    subject in a fixture a test requests by name.
-  - Write no teardown for mocks: each test gets new ones, and `mocker` undoes
-    its patches.
-  - Mocks are always per test; never use `class_mocker` or a wider scope.
-- A test stubs what decides its own case in the Given step with
-  `return_value` or `side_effect`, and asserts the awaited calls that make up
-  the effect, such as `assert_awaited_once_with` or `assert_not_awaited`.
-  Record call order across mocks with `attach_mock` on one `mocker.Mock()`.
-- A revision's test runs it against a throwaway PostgreSQL database. It checks
-  only what the database does: upgrade from empty, downgrade to base, no
-  difference from the mapped tables, and the rules PostgreSQL itself enforces,
-  such as `CHECK` constraints, foreign-key actions, and unique or partial
-  indexes. Never write a test that restates the ERD or inspects SQLAlchemy
-  metadata: `alembic check` in the checks below catches unregistered tables
-  and drift between the tables and the revisions.
-
-## Checks
-
-The integration tests and `alembic check` need the Compose PostgreSQL, and the
-auth integration tests need Mailpit; start both first. See the README when
-port 5432, 1025, or 8025 is taken.
-
-```shell
-docker compose up --wait postgres mailpit
-uv run alembic upgrade head
-uv run alembic check
-uv run ruff check .
-uv run ruff format --check .
-uv run ty check
-uv run pytest --cov
-```
-
+[`../../docs/testing_conventions_backend.md`](../../docs/testing_conventions_backend.md)
+is authoritative for backend test structure, doubles, fixtures, isolation,
+coverage, and checks. If it conflicts with this file, follow the testing
+conventions.

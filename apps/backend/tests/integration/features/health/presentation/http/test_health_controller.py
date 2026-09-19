@@ -3,13 +3,21 @@
 from fastapi.testclient import TestClient
 
 
-def test_health_reports_ok(client: TestClient) -> None:
-    # Given: the assembled application is running behind the test client.
-    health_path = "/health"
+class TestHealthController:
+    """The liveness answer of `GET /health`."""
 
-    # When: a caller requests the health endpoint.
-    response = client.get(health_path)
+    def test_health_reports_ok(self, client: TestClient) -> None:
+        """
+        Given: the assembled application is running.
+        When: a caller requests the health endpoint.
+        Then: the service answers that it is alive.
+        """
+        # Given: the assembled application is running behind the test client.
+        health_path = "/health"
 
-    # Then: the service answers that it is alive.
-    assert response.status_code == 200
-    assert response.json() == {"status": "ok"}
+        # When: a caller requests the health endpoint.
+        response = client.get(health_path)
+
+        # Then: the service answers that it is alive.
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok"}

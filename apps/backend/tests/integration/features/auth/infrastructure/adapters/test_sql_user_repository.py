@@ -23,7 +23,7 @@ NOW = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
 
 
 @pytest.fixture
-async def database_engine() -> AsyncIterator[AsyncEngine]:
+async def database_engine(test_database_configured: None) -> AsyncIterator[AsyncEngine]:
     """Connect to the application's database for the length of one test."""
     database_engine = create_async_engine(get_app_settings().database_url)
     yield database_engine
@@ -55,44 +55,53 @@ async def _wait_until_blocked(database_engine: AsyncEngine, backend_pid: int) ->
             await anyio.sleep(0.01)
 
 
-async def test_two_concurrent_sign_ups_create_one_account_without_an_error(
-    database_engine: AsyncEngine, unique_address: str
-) -> None:
-    # Given: one transaction has created an account for the email but not
-    # yet committed.
-    registration = UserRegistration(
-        email=EmailAddress(unique_address),
-        first_name="Jane",
-        last_name="Doe",
-        registered_at=NOW,
-    )
-    async with (
-        AsyncSession(database_engine) as first_session,
-        AsyncSession(database_engine) as second_session,
-    ):
-        first_created_user = await SqlUserRepository(
-            first_session
-        ).create_unverified_user_unless_email_taken(registration)
-        second_backend_pid = await second_session.scalar(text("SELECT pg_backend_pid()"))
-        assert isinstance(second_backend_pid, int)
-        second_transaction_results: list[User | None] = []
+class TestSqlUserRepository:
+    """`SqlUserRepository` against concurrent transactions in PostgreSQL."""
 
-        async def create_in_second_transaction() -> None:
-            """Create the same account in the second transaction and keep the result."""
-            second_transaction_results.append(
-                await SqlUserRepository(second_session).create_unverified_user_unless_email_taken(
-                    registration
+    @pytest.mark.asyncio
+    async def test_two_concurrent_sign_ups_create_one_account_without_an_error(
+        self, database_engine: AsyncEngine, unique_address: str
+    ) -> None:
+        """
+        Given: one transaction has created an account for an email but not committed yet.
+        When: a second transaction creates an account for the same email while the first commits.
+        Then: the first creates the account, and the second gets `None` instead of an error.
+        """
+        # Given: one transaction has created an account for the email but not
+        # yet committed.
+        registration = UserRegistration(
+            email=EmailAddress(unique_address),
+            first_name="Jane",
+            last_name="Doe",
+            registered_at=NOW,
+        )
+        async with (
+            AsyncSession(database_engine) as first_session,
+            AsyncSession(database_engine) as second_session,
+        ):
+            first_created_user = await SqlUserRepository(
+                first_session
+            ).create_unverified_user_unless_email_taken(registration)
+            second_backend_pid = await second_session.scalar(text("SELECT pg_backend_pid()"))
+            assert isinstance(second_backend_pid, int)
+            second_transaction_results: list[User | None] = []
+
+            async def create_in_second_transaction() -> None:
+                """Create the same account in the second transaction and keep the result."""
+                second_transaction_results.append(
+                    await SqlUserRepository(
+                        second_session
+                    ).create_unverified_user_unless_email_taken(registration)
                 )
-            )
 
-        # When: a second transaction creates an account for the same email,
-        # and the first commits while the second waits for it.
-        async with anyio.create_task_group() as task_group:
-            task_group.start_soon(create_in_second_transaction)
-            await _wait_until_blocked(database_engine, second_backend_pid)
-            await first_session.commit()
+            # When: a second transaction creates an account for the same email,
+            # and the first commits while the second waits for it.
+            async with anyio.create_task_group() as task_group:
+                task_group.start_soon(create_in_second_transaction)
+                await _wait_until_blocked(database_engine, second_backend_pid)
+                await first_session.commit()
 
-    # Then: the first created the account, and the second learned it exists
-    # instead of failing on the unique email.
-    assert first_created_user is not None
-    assert second_transaction_results == [None]
+        # Then: the first created the account, and the second learned it exists
+        # instead of failing on the unique email.
+        assert first_created_user is not None
+        assert second_transaction_results == [None]

@@ -40,9 +40,15 @@ class TestSmtpEmailSenderClient:
         ("security", "implicit_tls", "starttls"),
         [("none", False, False), ("starttls", False, True), ("tls", True, False)],
     )
+    @pytest.mark.asyncio
     async def test_each_security_setting_protects_the_connection_its_way(
         self, security: SmtpSecurity, implicit_tls: bool, starttls: bool
     ) -> None:
+        """
+        Given: a client with one security setting.
+        When: an email is sent.
+        Then: the connection uses implicit TLS, STARTTLS, or neither, as the setting says.
+        """
         # Given: a client with one security setting.
         client = _build_smtp_client(security=security)
 
@@ -67,9 +73,15 @@ class TestSmtpEmailSenderClient:
             ),
         ],
     )
+    @pytest.mark.asyncio
     async def test_a_server_rejection_that_quotes_the_recipient_fails_without_it(
         self, rejection: aiosmtplib.SMTPException
     ) -> None:
+        """
+        Given: a server that rejects the email with a reply quoting the recipient.
+        When: an email is sent.
+        Then: the send fails with `EmailDeliveryFailure`, which drops the quoted address.
+        """
         # Given: a server that rejects the email with a reply quoting the address.
         self.aiosmtplib_send.side_effect = rejection
 

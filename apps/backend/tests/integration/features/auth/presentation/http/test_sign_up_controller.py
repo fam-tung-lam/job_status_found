@@ -11,6 +11,7 @@ import os
 import re
 import time
 from collections.abc import Callable, Iterator
+from contextlib import ExitStack
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID, uuid4
@@ -47,7 +48,9 @@ MAILPIT_API_URL = f"http://localhost:{os.environ.get('MAILPIT_WEB_PORT', '8025')
 
 
 @pytest.fixture
-def auth_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+def auth_settings(
+    test_database_configured: None, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
     """Configure the auth settings the tests rely on, and drop the cached ones around the test."""
     monkeypatch.setenv("JSF_AUTH_HMAC_KEY", HMAC_KEY)
     monkeypatch.setenv("JSF_AUTH_VERIFICATION_CODE_LIFETIME", "PT10M")
@@ -88,19 +91,35 @@ def new_mailbox_address(database_engine: Engine) -> Iterator[Callable[[], str]]:
     """Hand out unique addresses, and delete their accounts and Mailpit emails afterwards."""
     addresses: list[str] = []
 
-    def create_mailbox_address() -> str:
-        """Create a new unique address."""
-        addresses.append(f"jane.{uuid4().hex}@example.com")
-        return addresses[-1]
+    def delete_test_accounts() -> None:
+        """Delete the committed database rows created for the handed-out addresses."""
+        if not addresses:
+            return
+        with database_engine.begin() as connection:
+            # Deleting a user keeps its events with a null user, so they go first.
+            user_ids = select(UserTable.id).where(UserTable.email_normalized.in_(addresses))
+            connection.execute(delete(AuthEventTable).where(AuthEventTable.user_id.in_(user_ids)))
+            connection.execute(delete(UserTable).where(UserTable.email_normalized.in_(addresses)))
 
-    yield create_mailbox_address
-    with database_engine.begin() as connection:
-        # Deleting a user keeps its events with a null user, so they go first.
-        user_ids = select(UserTable.id).where(UserTable.email_normalized.in_(addresses))
-        connection.execute(delete(AuthEventTable).where(AuthEventTable.user_id.in_(user_ids)))
-        connection.execute(delete(UserTable).where(UserTable.email_normalized.in_(addresses)))
-    for address in addresses:
-        httpx2.delete(f"{MAILPIT_API_URL}/search", params={"query": f'to:"{address}"'})
+    with ExitStack() as cleanup_stack:
+        cleanup_stack.callback(delete_test_accounts)
+
+        def create_mailbox_address() -> str:
+            """Create a unique address and register its independent mail cleanup."""
+            address = f"jane.{uuid4().hex}@example.com"
+            addresses.append(address)
+            cleanup_stack.callback(_delete_emails_to, address)
+            return address
+
+        yield create_mailbox_address
+
+
+def _delete_emails_to(address: str) -> None:
+    """Delete Mailpit messages to one address and surface a failed cleanup request."""
+    response = httpx2.delete(
+        f"{MAILPIT_API_URL}/search", params={"query": f'to:"{address}"'}, timeout=2
+    )
+    response.raise_for_status()
 
 
 @pytest.fixture
@@ -122,18 +141,31 @@ def _post_sign_up(
 def _wait_for_emails_to(address: str, count: int) -> list[dict[str, Any]]:
     """Wait until Mailpit holds `count` emails to an address, and return them oldest first."""
     deadline = time.monotonic() + 5
-    while True:
-        search_result = httpx2.get(
-            f"{MAILPIT_API_URL}/search", params={"query": f'to:"{address}"'}
-        ).json()
-        if search_result["messages_count"] >= count or time.monotonic() > deadline:
+    search_result: dict[str, Any] = {"messages_count": 0, "messages": []}
+    while time.monotonic() <= deadline:
+        response = httpx2.get(
+            f"{MAILPIT_API_URL}/search",
+            params={"query": f'to:"{address}"'},
+            timeout=2,
+        )
+        response.raise_for_status()
+        search_result = response.json()
+        if search_result["messages_count"] >= count:
             break
         time.sleep(0.05)
+    else:
+        pytest.fail(
+            f"Mailpit held {search_result['messages_count']} of {count} "
+            f"expected emails to {address}."
+        )
+
     # Mailpit lists the newest message first.
-    return [
-        httpx2.get(f"{MAILPIT_API_URL}/message/{summary['ID']}").json()
-        for summary in reversed(search_result["messages"])
-    ]
+    emails: list[dict[str, Any]] = []
+    for summary in reversed(search_result["messages"]):
+        response = httpx2.get(f"{MAILPIT_API_URL}/message/{summary['ID']}", timeout=2)
+        response.raise_for_status()
+        emails.append(response.json())
+    return emails
 
 
 def _read_verification_code_in(email: dict[str, Any]) -> str:
@@ -195,177 +227,214 @@ def _hash_verification_code(code: str) -> bytes:
     return hmac.digest(HMAC_KEY.encode(), code.encode(), hashlib.sha256)
 
 
-def test_a_new_email_stores_an_unverified_account_and_mails_its_code(
-    client: TestClient, database_engine: Engine, mailbox_address: str
-) -> None:
-    # Given: an email no account uses.
-    typed_address = mailbox_address.replace("jane.", "Jane.")
+class TestSignUpController:
+    """`POST /v1/auth/sign-up` with the real database, SMTP server, and password hash."""
 
-    # When: a person signs up with it.
-    response = _post_sign_up(client, typed_address)
+    def test_a_new_email_stores_an_unverified_account_and_mails_its_code(
+        self, client: TestClient, database_engine: Engine, mailbox_address: str
+    ) -> None:
+        """
+        Given: an email that no account uses.
+        When: a person signs up with it.
+        Then: the API accepts with an empty 202.
+        And: an unverified account is stored with an Argon2id hash of the password.
+        And: the code is mailed, and only its keyed hash is stored.
+        """
+        # Given: an email no account uses.
+        typed_address = mailbox_address.replace("jane.", "Jane.")
 
-    # Then: the API accepts with an empty body.
-    assert (response.status_code, response.content) == (202, b"")
-    # And: an unverified account keeps the typed email and the submitted name.
-    user = _read_user_row(database_engine, mailbox_address)
-    assert (user.email, user.email_verified_at) == (typed_address, None)
-    assert (user.first_name, user.last_name) == ("Jane", "Doe")
-    # And: the password is stored only as an Argon2id hash that verifies it.
-    password_hash = _read_password_hash(database_engine, user.id)
-    assert password_hash.startswith("$argon2id$")
-    assert PasswordHash.recommended().verify("first password", password_hash)
-    # And: Mailpit receives the code, and the one open challenge holds only its
-    # keyed hash, valid for the configured lifetime.
-    [email] = _wait_for_emails_to(mailbox_address, 1)
-    [challenge] = _read_email_challenge_rows(database_engine, user.id)
-    assert challenge.purpose == "verify_email"
-    assert challenge.secret_hash == _hash_verification_code(_read_verification_code_in(email))
-    assert challenge.expires_at - challenge.created_at == timedelta(minutes=10)
+        # When: a person signs up with it.
+        response = _post_sign_up(client, typed_address)
 
+        # Then: the API accepts with an empty body.
+        assert (response.status_code, response.content) == (202, b"")
+        # And: an unverified account keeps the typed email and the submitted name.
+        user = _read_user_row(database_engine, mailbox_address)
+        assert (user.email, user.email_verified_at) == (typed_address, None)
+        assert (user.first_name, user.last_name) == ("Jane", "Doe")
+        # And: the password is stored only as an Argon2id hash that verifies it.
+        password_hash = _read_password_hash(database_engine, user.id)
+        assert password_hash.startswith("$argon2id$")
+        assert PasswordHash.recommended().verify("first password", password_hash)
+        # And: Mailpit receives the code, and the one open challenge holds only its
+        # keyed hash, valid for the configured lifetime.
+        [email] = _wait_for_emails_to(mailbox_address, 1)
+        [challenge] = _read_email_challenge_rows(database_engine, user.id)
+        assert challenge.purpose == "verify_email"
+        assert challenge.secret_hash == _hash_verification_code(_read_verification_code_in(email))
+        assert challenge.expires_at - challenge.created_at == timedelta(minutes=10)
 
-def test_a_verified_email_answers_like_a_new_one_changes_nothing_and_mails_a_notice(
-    client: TestClient, database_engine: Engine, new_mailbox_address: Callable[[], str]
-) -> None:
-    # Given: a verified account, and the answer a brand-new email gets.
-    mailbox_address = new_mailbox_address()
-    _insert_verified_user(database_engine, mailbox_address)
-    user_before_sign_up = _read_user_row(database_engine, mailbox_address)
-    new_email_response = _post_sign_up(client, new_mailbox_address())
+    def test_a_verified_email_answers_like_a_new_one_changes_nothing_and_mails_a_notice(
+        self, client: TestClient, database_engine: Engine, new_mailbox_address: Callable[[], str]
+    ) -> None:
+        """
+        Given: a verified account.
+        When: someone signs up with its email.
+        Then: the answer is indistinguishable from the answer to a new email.
+        And: the account is unchanged and gains no password or code.
+        And: the owner is mailed a notice that someone tried to sign up.
+        """
+        # Given: a verified account, and the answer a brand-new email gets.
+        mailbox_address = new_mailbox_address()
+        _insert_verified_user(database_engine, mailbox_address)
+        user_before_sign_up = _read_user_row(database_engine, mailbox_address)
+        new_email_response = _post_sign_up(client, new_mailbox_address())
 
-    # When: someone signs up with the verified account's email.
-    response = _post_sign_up(
-        client, mailbox_address, first_name="Mallory", password="second password"
-    )
-
-    # Then: the answer is indistinguishable from the new email's.
-    assert (response.status_code, response.headers, response.content) == (
-        new_email_response.status_code,
-        new_email_response.headers,
-        new_email_response.content,
-    )
-    # And: the account is unchanged and gained no password or code.
-    assert _read_user_row(database_engine, mailbox_address) == user_before_sign_up
-    assert _read_email_challenge_rows(database_engine, user_before_sign_up.id) == []
-    with database_engine.connect() as connection:
-        credential_user_id = connection.scalar(
-            select(PasswordCredentialTable.user_id).where(
-                PasswordCredentialTable.user_id == user_before_sign_up.id
-            )
+        # When: someone signs up with the verified account's email.
+        response = _post_sign_up(
+            client, mailbox_address, first_name="Mallory", password="second password"
         )
-    assert credential_user_id is None
-    # And: the owner is told that someone tried to sign up.
-    [email] = _wait_for_emails_to(mailbox_address, 1)
-    assert email["Subject"] == "You already have a JSV account"
 
+        # Then: the answer is indistinguishable from the new email's.
+        assert (response.status_code, response.headers, response.content) == (
+            new_email_response.status_code,
+            new_email_response.headers,
+            new_email_response.content,
+        )
+        # And: the account is unchanged and gained no password or code.
+        assert _read_user_row(database_engine, mailbox_address) == user_before_sign_up
+        assert _read_email_challenge_rows(database_engine, user_before_sign_up.id) == []
+        with database_engine.connect() as connection:
+            credential_user_id = connection.scalar(
+                select(PasswordCredentialTable.user_id).where(
+                    PasswordCredentialTable.user_id == user_before_sign_up.id
+                )
+            )
+        assert credential_user_id is None
+        # And: the owner is told that someone tried to sign up.
+        [email] = _wait_for_emails_to(mailbox_address, 1)
+        assert email["Subject"] == "You already have a JSV account"
 
-def test_an_unverified_email_after_the_send_interval_takes_the_new_password_name_and_code(
-    client: TestClient, database_engine: Engine, utc_now: MockType, mailbox_address: str
-) -> None:
-    # Given: an unverified account whose code was mailed an hour ago.
-    _post_sign_up(client, mailbox_address)
-    utc_now.return_value = STUBBED_START_TIME + timedelta(hours=1)
+    def test_an_unverified_email_after_the_send_interval_stores_the_latest_password_name_and_code(
+        self, client: TestClient, database_engine: Engine, utc_now: MockType, mailbox_address: str
+    ) -> None:
+        """
+        Given: an unverified account whose code was mailed an hour ago.
+        When: someone signs up again with that email.
+        Then: the latest name, password, and mailed code are the stored state.
+        """
+        # Given: an unverified account whose code was mailed an hour ago.
+        _post_sign_up(client, mailbox_address)
+        utc_now.return_value = STUBBED_START_TIME + timedelta(hours=1)
 
-    # When: someone signs up again with that email.
-    response = _post_sign_up(
-        client, mailbox_address, first_name="Janet", password="second password"
-    )
+        # When: someone signs up again with that email.
+        response = _post_sign_up(
+            client, mailbox_address, first_name="Janet", password="second password"
+        )
 
-    # Then: the answer is the same empty 202.
-    assert (response.status_code, response.content) == (202, b"")
-    # And: the latest name and password replace the first ones.
-    user = _read_user_row(database_engine, mailbox_address)
-    assert user.first_name == "Janet"
-    assert PasswordHash.recommended().verify(
-        "second password", _read_password_hash(database_engine, user.id)
-    )
-    # And: only the second mailed code has a challenge.
-    first_email, second_email = _wait_for_emails_to(mailbox_address, 2)
-    [challenge] = _read_email_challenge_rows(database_engine, user.id)
-    assert challenge.secret_hash == _hash_verification_code(
-        _read_verification_code_in(second_email)
-    )
-    assert _read_verification_code_in(first_email) != _read_verification_code_in(second_email)
+        # Then: the answer is the same empty 202.
+        assert (response.status_code, response.content) == (202, b"")
+        # And: the latest name and password replace the first ones.
+        user = _read_user_row(database_engine, mailbox_address)
+        assert user.first_name == "Janet"
+        assert PasswordHash.recommended().verify(
+            "second password", _read_password_hash(database_engine, user.id)
+        )
+        # And: the only open challenge matches the latest mailed code.
+        _, second_email = _wait_for_emails_to(mailbox_address, 2)
+        [challenge] = _read_email_challenge_rows(database_engine, user.id)
+        assert challenge.secret_hash == _hash_verification_code(
+            _read_verification_code_in(second_email)
+        )
 
+    def test_a_password_outside_the_policy_answers_password_too_weak_as_a_problem(
+        self, client: TestClient, mailbox_address: str
+    ) -> None:
+        """
+        Given: a password too short for the policy.
+        When: a person signs up with it.
+        Then: the API answers with a 400 problem whose code is `password_too_weak`.
+        """
+        # Given: a password too short for the policy.
+        too_short = "x" * 11
 
-def test_a_password_outside_the_policy_answers_password_too_weak_as_a_problem(
-    client: TestClient, mailbox_address: str
-) -> None:
-    # Given: a password too short for the policy.
-    too_short = "x" * 11
+        # When: a person signs up with it.
+        response = _post_sign_up(client, mailbox_address, password=too_short)
 
-    # When: a person signs up with it.
-    response = _post_sign_up(client, mailbox_address, password=too_short)
+        # Then: the answer is an RFC 9457 problem with the stable code and a
+        # human-readable detail.
+        assert response.status_code == 400
+        assert response.headers["content-type"] == "application/problem+json"
+        problem = response.json()
+        assert isinstance(problem.pop("detail"), str)
+        assert problem == {
+            "type": "about:blank",
+            "title": "Bad Request",
+            "status": 400,
+            "code": "password_too_weak",
+        }
 
-    # Then: the answer is an RFC 9457 problem with the stable code and a
-    # human-readable detail.
-    assert response.status_code == 400
-    assert response.headers["content-type"] == "application/problem+json"
-    problem = response.json()
-    assert isinstance(problem.pop("detail"), str)
-    assert problem == {
-        "type": "about:blank",
-        "title": "Bad Request",
-        "status": 400,
-        "code": "password_too_weak",
-    }
+    def test_invalid_input_answers_invalid_input_as_a_problem_without_echoing_the_password(
+        self,
+        client: TestClient,
+    ) -> None:
+        """
+        Given: a body with a malformed email and no first name.
+        When: the body is submitted.
+        Then: the API answers with a 422 problem that names each invalid field.
+        And: the answer does not echo the password.
+        """
+        # Given: a body with a malformed email and no first name.
+        body = {"last_name": "Doe", "email": "not-an-email", "password": "a secret password"}
 
+        # When: it is submitted.
+        response = client.post(SIGN_UP_PATH, json=body)
 
-def test_invalid_input_answers_invalid_input_as_a_problem_without_echoing_the_password(
-    client: TestClient,
-) -> None:
-    # Given: a body with a malformed email and no first name.
-    body = {"last_name": "Doe", "email": "not-an-email", "password": "a secret password"}
+        # Then: the answer is a 422 problem that names each invalid field.
+        assert response.status_code == 422
+        assert response.headers["content-type"] == "application/problem+json"
+        problem = response.json()
+        assert problem["code"] == "invalid_input"
+        assert {tuple(error["loc"]) for error in problem["errors"]} == {
+            ("body", "first_name"),
+            ("body", "email"),
+        }
+        # And: no submitted value comes back.
+        assert "a secret password" not in response.text
 
-    # When: it is submitted.
-    response = client.post(SIGN_UP_PATH, json=body)
+    def test_a_sign_up_logs_no_password_code_or_email(
+        self, client: TestClient, mailbox_address: str, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        """
+        Given: every logger records at DEBUG.
+        When: a person signs up and is mailed a code.
+        Then: no log record holds the password, the code, or the address.
+        """
+        # Given: every logger records at DEBUG.
+        caplog.set_level(logging.DEBUG)
 
-    # Then: the answer is a 422 problem that names each invalid field.
-    assert response.status_code == 422
-    assert response.headers["content-type"] == "application/problem+json"
-    problem = response.json()
-    assert problem["code"] == "invalid_input"
-    assert {tuple(error["loc"]) for error in problem["errors"]} == {
-        ("body", "first_name"),
-        ("body", "email"),
-    }
-    # And: no submitted value comes back.
-    assert "a secret password" not in response.text
+        # When: a person signs up and is mailed a code.
+        _post_sign_up(client, mailbox_address, password="a logged password?")
+        [email] = _wait_for_emails_to(mailbox_address, 1)
 
+        # Then: no record holds the password, the code, or the address.
+        logged_text = "\n".join(record.getMessage() for record in caplog.records)
+        assert caplog.records, "the sign-up logged nothing, so the check proves nothing"
+        for sensitive_value in (
+            "a logged password?",
+            _read_verification_code_in(email),
+            mailbox_address,
+        ):
+            assert sensitive_value not in logged_text
 
-def test_a_sign_up_logs_no_password_code_or_email(
-    client: TestClient, mailbox_address: str, caplog: pytest.LogCaptureFixture
-) -> None:
-    # Given: every logger records at DEBUG.
-    caplog.set_level(logging.DEBUG)
+    def test_an_accepted_sign_up_answers_no_sooner_than_the_minimum_response_time(
+        self, monkeypatch: pytest.MonkeyPatch, mailbox_address: str
+    ) -> None:
+        """
+        Given: a minimum response time far above what a sign-up needs.
+        When: someone signs up.
+        Then: the answer takes at least the minimum response time.
+        """
+        # Given: a minimum response time far above what a sign-up needs.
+        monkeypatch.setenv("JSF_AUTH_SIGN_UP_MIN_RESPONSE_TIME", "PT0.3S")
+        get_auth_settings.cache_clear()
 
-    # When: a person signs up and is mailed a code.
-    _post_sign_up(client, mailbox_address, password="a logged password?")
-    [email] = _wait_for_emails_to(mailbox_address, 1)
+        # When: someone signs up.
+        with TestClient(create_app()) as client:
+            started = time.monotonic()
+            response = _post_sign_up(client, mailbox_address)
+            elapsed = time.monotonic() - started
 
-    # Then: no record holds the password, the code, or the address.
-    logged_text = "\n".join(record.getMessage() for record in caplog.records)
-    assert caplog.records, "the sign-up logged nothing, so the check proves nothing"
-    for sensitive_value in (
-        "a logged password?",
-        _read_verification_code_in(email),
-        mailbox_address,
-    ):
-        assert sensitive_value not in logged_text
-
-
-def test_an_accepted_sign_up_answers_no_sooner_than_the_minimum_response_time(
-    monkeypatch: pytest.MonkeyPatch, mailbox_address: str
-) -> None:
-    # Given: a minimum response time far above what a sign-up needs.
-    monkeypatch.setenv("JSF_AUTH_SIGN_UP_MIN_RESPONSE_TIME", "PT0.3S")
-    get_auth_settings.cache_clear()
-
-    # When: someone signs up.
-    with TestClient(create_app()) as client:
-        started = time.monotonic()
-        response = _post_sign_up(client, mailbox_address)
-        elapsed = time.monotonic() - started
-
-    # Then: the answer waits for the minimum.
-    assert response.status_code == 202
-    assert elapsed >= 0.3
+        # Then: the answer waits for the minimum.
+        assert response.status_code == 202
+        assert elapsed >= 0.3

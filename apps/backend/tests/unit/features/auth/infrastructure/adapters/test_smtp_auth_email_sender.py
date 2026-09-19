@@ -21,9 +21,15 @@ class TestSmtpAuthEmailSender:
         self.smtp_client = mocker.create_autospec(SmtpEmailSenderClient, instance=True)
         self.auth_email_sender = SmtpAuthEmailSender(smtp_client=self.smtp_client)
 
+    @pytest.mark.asyncio
     async def test_a_failed_delivery_is_logged_without_the_recipient_or_code(
         self, caplog: pytest.LogCaptureFixture
     ) -> None:
+        """
+        Given: an SMTP client whose delivery fails.
+        When: a verification code is sent.
+        Then: the failure is logged, not raised, without the recipient or the code.
+        """
         # Given: an SMTP client whose delivery fails.
         self.smtp_client.send_plain_text_email.side_effect = EmailDeliveryFailure(
             "SMTPConnectError: connection refused"

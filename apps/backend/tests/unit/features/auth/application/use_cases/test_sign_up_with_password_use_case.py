@@ -110,9 +110,15 @@ class TestSignUpWithPasswordUseCase:
         self.users.create_unverified_user_unless_email_taken.return_value = None
         self.users.lock_user_by_normalized_email.return_value = user
 
+    @pytest.mark.asyncio
     async def test_the_code_is_mailed_only_after_the_writes_are_committed(
         self, mocker: MockerFixture
     ) -> None:
+        """
+        Given: no account exists for the email.
+        When: a person signs up.
+        Then: the verification email goes out only after the writes are committed.
+        """
         # Given: no account exists, and one recorder that sees both the commit
         # and the email.
         self.users.create_unverified_user_unless_email_taken.return_value = UNVERIFIED_USER
@@ -132,9 +138,15 @@ class TestSignUpWithPasswordUseCase:
             mocker.call.send_verification_code(UNVERIFIED_USER.email, "012345", CODE_LIFETIME),
         ]
 
+    @pytest.mark.asyncio
     async def test_an_unverified_email_takes_the_new_password_and_code_once_the_interval_passed(
         self,
     ) -> None:
+        """
+        Given: an unverified account whose code was sent one send interval ago.
+        When: someone signs up again with that email.
+        Then: the new password and a new mailed code replace the old ones.
+        """
         # Given: an unverified account whose code was sent exactly one send
         # interval ago.
         self._stub_existing_user(UNVERIFIED_USER)
@@ -161,9 +173,16 @@ class TestSignUpWithPasswordUseCase:
             UNVERIFIED_USER.email, "012345", CODE_LIFETIME
         )
 
+    @pytest.mark.asyncio
     async def test_an_unverified_email_within_the_interval_changes_nothing_and_sends_nothing(
         self,
     ) -> None:
+        """
+        Given: an unverified account whose code was sent less than one send interval ago.
+        When: someone signs up again with that email and another password.
+        Then: the account, its password, and its open code stay as they were.
+        And: no email goes out.
+        """
         # Given: an unverified account whose code was sent just under one send
         # interval ago.
         self._stub_existing_user(UNVERIFIED_USER)
@@ -187,9 +206,16 @@ class TestSignUpWithPasswordUseCase:
         [None, NOW - SEND_INTERVAL],
         ids=["no-notice-yet", "notice-one-interval-ago"],
     )
+    @pytest.mark.asyncio
     async def test_a_verified_email_gets_a_recorded_notice_once_the_interval_passed(
         self, last_notice_sent_at: datetime | None
     ) -> None:
+        """
+        Given: a verified account whose owner got no notice yet, or one a send interval ago.
+        When: someone signs up with its email.
+        Then: the owner gets a notice, recorded to pace the next one.
+        And: the account itself does not change.
+        """
         # Given: a verified account whose owner got no notice yet, or got one
         # exactly one send interval ago.
         self._stub_existing_user(VERIFIED_USER)
@@ -207,7 +233,13 @@ class TestSignUpWithPasswordUseCase:
         self.users.replace_first_and_last_name.assert_not_awaited()
         self.password_credentials.set_password_hash.assert_not_awaited()
 
+    @pytest.mark.asyncio
     async def test_a_verified_email_within_the_interval_gets_no_second_notice(self) -> None:
+        """
+        Given: a verified account whose owner got a notice less than one send interval ago.
+        When: someone signs up with its email.
+        Then: no notice goes out and none is recorded.
+        """
         # Given: a verified account whose owner got a notice just under one send
         # interval ago.
         self._stub_existing_user(VERIFIED_USER)
@@ -222,9 +254,15 @@ class TestSignUpWithPasswordUseCase:
         self.email_sender.send_existing_account_notice.assert_not_awaited()
         self.auth_events.record_auth_event.assert_not_awaited()
 
+    @pytest.mark.asyncio
     async def test_a_password_outside_the_policy_is_refused_before_anything_is_stored_or_sent(
         self,
     ) -> None:
+        """
+        Given: a password one code point shorter than the policy allows.
+        When: a person signs up with it.
+        Then: the sign-up is refused before any hash, write, or email.
+        """
         # Given: a password one code point shorter than the policy allows.
         too_short = "x" * 11
 
