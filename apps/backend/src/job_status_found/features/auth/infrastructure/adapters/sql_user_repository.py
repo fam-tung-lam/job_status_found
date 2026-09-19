@@ -39,6 +39,8 @@ class SqlUserRepository:
         Returns:
             The new account, or `None` when the normalized email already has one.
         """
+        # Insert the account, or nothing when the normalized email is taken. The
+        # unique index makes a concurrent insert of the same email wait here.
         statement = (
             insert(UserTable)
             .values(
@@ -56,6 +58,8 @@ class SqlUserRepository:
             .returning(UserTable.id)
         )
         user_id = await self._session.scalar(statement)
+
+        # No returned id means the insert did nothing because the email is taken.
         if user_id is None:
             return None
         return User(id=user_id, email=registration.email.as_typed, email_verified_at=None)

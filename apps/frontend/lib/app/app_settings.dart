@@ -29,7 +29,11 @@ final class const AppSettings._({
   /// Throws [ArgumentError] when [rawApiBaseUrl] is not an absolute `http` or
   /// `https` URL with a host.
   factory fromApiBaseUrl(String rawApiBaseUrl) {
+    // Parse the raw value; a malformed URL parses to null.
     final url = Uri.tryParse(rawApiBaseUrl);
+
+    // Refuse anything but an absolute http or https URL with a host, so a
+    // wrong build define fails at start-up instead of on the first request.
     final isHttpUrl =
         url != null &&
         (url.isScheme('http') || url.isScheme('https')) &&
@@ -41,6 +45,7 @@ final class const AppSettings._({
         'must be an absolute http or https URL, such as http://localhost:8000',
       );
     }
+
     return AppSettings._(apiBaseUrl: url);
   }
 }

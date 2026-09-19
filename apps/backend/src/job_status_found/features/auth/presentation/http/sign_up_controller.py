@@ -64,7 +64,10 @@ async def sign_up(
     Returns:
         An empty 202 response.
     """
+    # Fix the earliest answer time before any work, so every branch answers together.
     earliest_response_at = anyio.current_time() + min_response_time.total_seconds()
+
+    # Sign the person up; the email goes out after the response.
     await sign_up_with_password.invoke(
         SignUpInput(
             first_name=sign_up_request.first_name,
@@ -73,5 +76,7 @@ async def sign_up(
             password=sign_up_request.password,
         )
     )
+
+    # Hold the answer until the minimum response time has passed.
     await anyio.sleep_until(earliest_response_at)
     return Response(status_code=status.HTTP_202_ACCEPTED)

@@ -51,6 +51,8 @@ class SqlEmailChallengeRepository:
         Args:
             challenge: The challenge to store.
         """
+        # Delete the open challenge first; the partial unique index allows only
+        # one open challenge per user and purpose.
         await self._session.execute(
             delete(EmailChallengeTable).where(
                 EmailChallengeTable.user_id == challenge.owner_id,
@@ -58,6 +60,8 @@ class SqlEmailChallengeRepository:
                 EmailChallengeTable.consumed_at.is_(None),
             )
         )
+
+        # Store the new challenge, unanswered.
         row = EmailChallengeTable()
         row.user_id = challenge.owner_id
         row.purpose = challenge.purpose

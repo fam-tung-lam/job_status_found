@@ -20,7 +20,11 @@ final class HealthStatusCubit(
   /// A result that arrives after [close] is dropped, because nothing observes
   /// it any more.
   Future<void> checkBackendHealth() async {
+    // Let only one check run at a time.
     if (state is HealthStatusChecking) return;
+
+    // Show the check in progress, then its result, unless the cubit closed
+    // while waiting.
     emit(const HealthStatusChecking());
     final result = await _runOneHealthCheck();
     if (!isClosed) emit(result);

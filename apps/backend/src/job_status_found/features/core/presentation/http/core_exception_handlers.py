@@ -39,6 +39,7 @@ async def handle_request_validation_error(_request: Request, error: Exception) -
     if not isinstance(error, RequestValidationError):
         error_message = f"Expected RequestValidationError, got {type(error).__name__}."
         raise TypeError(error_message)
+
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     problem = InvalidInputProblemDetails(
         title=HTTPStatus(status_code).phrase,

@@ -29,9 +29,13 @@ class ProblemDetailsFastAPI(FastAPI):
         Returns:
             The OpenAPI document.
         """
+        # Reuse the document FastAPI cached on the first call.
         if self.openapi_schema is not None:
             return self.openapi_schema
         document = super().openapi()
+
+        # Register the problem schemas, and drop FastAPI's validation schemas,
+        # whose body this app never sends.
         _, definitions = models_json_schema(
             [(ProblemDetails, "serialization"), (InvalidInputProblemDetails, "serialization")],
             ref_template=OPENAPI_SCHEMA_REF_TEMPLATE,
@@ -40,6 +44,8 @@ class ProblemDetailsFastAPI(FastAPI):
         schemas.update(definitions["$defs"])
         schemas.pop("HTTPValidationError", None)
         schemas.pop("ValidationError", None)
+
+        # Describe every operation's 422 as the problem this app sends.
         for path_item in document.get("paths", {}).values():
             for operation in path_item.values():
                 if "422" in operation.get("responses", {}):

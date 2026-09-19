@@ -15,6 +15,7 @@ final class const HealthApiClient(
   /// [FormatException] when the body is not the documented JSON object.
   Future<HealthStatusResponseDto> fetchHealthStatus() async {
     final body = await _httpClient.get('/health');
+
     if (body is! Map<String, Object?>) {
       throw FormatException('Expected a JSON object from /health, got $body.');
     }

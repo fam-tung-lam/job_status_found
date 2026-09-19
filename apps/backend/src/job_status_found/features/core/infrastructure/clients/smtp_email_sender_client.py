@@ -66,11 +66,15 @@ class SmtpEmailSenderClient:
             EmailDeliveryFailure: The server was unreachable, timed out, or
                 refused the email.
         """
+        # Compose the message.
         message = EmailMessage()
         message["From"] = self._from_address
         message["To"] = recipient
         message["Subject"] = subject
         message.set_content(body)
+
+        # Deliver it over a new connection, turning every SMTP or network error
+        # into a failure whose message is safe to log.
         try:
             await aiosmtplib.send(
                 message,

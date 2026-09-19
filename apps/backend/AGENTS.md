@@ -44,6 +44,13 @@
   `run_migrations_online`, and Pydantic's `model_config`. Keep the wire
   fields of `InvalidInputError` too: `loc`, `msg`, and `type`.
 
+## Code layout
+
+- Code layout follows the root "Code layout and comments" rules, with `#`
+  phase comments; `SignUpWithPasswordUseCase.invoke` shows the layout.
+- `ruff format` keeps one blank line inside a function body and removes
+  more, so one blank line is the phase separator.
+
 ## Structure
 
 - `src/job_status_found/app/` holds only composition: the composition root

@@ -202,6 +202,20 @@ Expand an alias only when the entire user message is that alias:
   `HealthStatusHealthy`. Do not use generic names such as `Initial`,
   `Loading`, or `Loaded`.
 
+## Code layout and comments
+
+- Separate the phases of a function with one blank line, such as checking
+  input, reading state, writing, committing, and sending. Keep the lines of
+  one phase together.
+- When a function has several phases, branching or long logic, or is
+  otherwise slow to read, start each phase with a short comment. It says what
+  the phase does and, when the code does not show it, why. A reader who reads
+  only these comments understands the function's flow without reading its
+  lines.
+- A phase comment summarizes a phase; it never restates one line of code. A
+  short function with one job needs no phase comments.
+- Tests mark their phases with the Given-When-Then comments instead.
+
 ## Documentation
 
 - Every declaration has a concise doc comment, public or private: modules,

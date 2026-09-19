@@ -95,6 +95,10 @@ Localization rules:
   A private field that holds a collaborator names that collaborator, such as
   `_healthApiClient`, not `_client`. Keep the names Flutter requires, such as
   `build`, `createState`, and `props`.
+- Code layout follows the root "Code layout and comments" rules, with `//`
+  phase comments; `AppSettings.fromApiBaseUrl` shows the layout. A widget's
+  `build` needs no phase comments: its widget tree shows its structure, and a
+  private widget names each part.
 - Lints come from `very_good_analysis` in `analysis_options.yaml`. Fix the
   code instead of adding `// ignore:`.
 - `analysis_options.yaml` adds `use_primary_constructors` and

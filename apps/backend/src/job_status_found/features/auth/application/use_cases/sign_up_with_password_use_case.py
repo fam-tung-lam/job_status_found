@@ -122,11 +122,14 @@ class SignUpWithPasswordUseCase:
             RuntimeError: The account holding the email was deleted while this
                 sign-up ran.
         """
+        # Refuse a password outside the policy before any work or write.
         password_policy = self._settings.password_policy
         if not password_policy.is_length_allowed(sign_up.password):
             raise SignUpPasswordTooWeak(
                 min_length=password_policy.min_length, max_length=password_policy.max_length
             )
+
+        # Hash the password in every branch, so no branch answers measurably faster.
         password_hash = await self._hash_password(sign_up.password)
         now = self._utc_now()
         registration = UserRegistration(
@@ -136,10 +139,13 @@ class SignUpWithPasswordUseCase:
             registered_at=now,
         )
 
+        # A new email gets an account, its password, and its first code.
         new_user = await self._users.create_unverified_user_unless_email_taken(registration)
         if new_user is not None:
             await self._set_password_and_email_first_verification_code(new_user, password_hash, now)
             return
+
+        # The email is taken: lock its account, so a concurrent sign-up waits.
         existing_user = await self._users.lock_user_by_normalized_email(
             registration.email.normalized
         )
@@ -148,6 +154,8 @@ class SignUpWithPasswordUseCase:
                 "The account holding the signed-up email was deleted during the sign-up."
             )
             raise RuntimeError(error_message)
+
+        # A verified owner gets a notice; an unverified account restarts its sign-up.
         if existing_user.is_email_verified:
             await self._email_existing_account_notice_unless_sent_recently(existing_user, now)
         else:
@@ -165,10 +173,13 @@ class SignUpWithPasswordUseCase:
             password_hash: The Argon2id hash of the submitted password.
             now: The instant of this sign-up.
         """
+        # Store the password and the first code in the account's transaction.
         await self._password_credentials.set_password_hash(user.id, password_hash, now)
         verification_code = await self._issue_verification_code(user.id, now)
         await self._unit_of_work.commit()
         logger.info("Sign-up created unverified user %s", user.id)
+
+        # Mail the code only after the commit, so it never names a discarded code.
         await self._send_verification_code(user, verification_code)
 
     async def _email_existing_account_notice_unless_sent_recently(
@@ -180,19 +191,24 @@ class SignUpWithPasswordUseCase:
             user: The verified account that owns the submitted email.
             now: The instant of this sign-up.
         """
+        # Send a notice only when the last one is at least one interval old.
         last_notice_sent_at = await self._auth_events.find_last_auth_event_occurred_at(
             user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE
         )
         should_send_notice = self._has_send_interval_passed_since(last_notice_sent_at, now)
+
+        # Record the notice, which paces the next one. The commit also ends the
+        # transaction that locked the row when nothing was written.
         if should_send_notice:
             await self._auth_events.record_auth_event(
                 user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE, now
             )
-        # Also ends the transaction that locked the row when nothing was written.
         await self._unit_of_work.commit()
         logger.info(
             "Sign-up matched verified user %s; notice sent: %s", user.id, should_send_notice
         )
+
+        # Mail the notice after the commit.
         if should_send_notice:
             await self._email_sender.send_existing_account_notice(user.email)
 
@@ -210,6 +226,8 @@ class SignUpWithPasswordUseCase:
             password_hash: The Argon2id hash of the submitted password.
             now: The instant of this sign-up.
         """
+        # Within the send interval of the last code, change nothing. The commit
+        # ends the transaction that locked the row.
         last_code_sent_at = await self._email_challenges.find_last_email_challenge_sent_at(
             user.id, EmailChallengePurpose.VERIFY_EMAIL
         )
@@ -217,11 +235,15 @@ class SignUpWithPasswordUseCase:
             await self._unit_of_work.commit()
             logger.info("Sign-up left unverified user %s unchanged within the interval", user.id)
             return
+
+        # Replace the name, the password, and the open code in one transaction.
         await self._users.replace_first_and_last_name(user.id, registration)
         await self._password_credentials.set_password_hash(user.id, password_hash, now)
         verification_code = await self._issue_verification_code(user.id, now)
         await self._unit_of_work.commit()
         logger.info("Sign-up replaced the password and code of unverified user %s", user.id)
+
+        # Mail the new code after the commit.
         await self._send_verification_code(user, verification_code)
 
     def _has_send_interval_passed_since(self, last_sent_at: datetime | None, now: datetime) -> bool:
@@ -247,6 +269,7 @@ class SignUpWithPasswordUseCase:
             The code in the clear, to mail after the commit.
         """
         code = self._generate_verification_code()
+
         await self._email_challenges.replace_open_email_challenge(
             NewEmailChallenge(
                 owner_id=user_id,

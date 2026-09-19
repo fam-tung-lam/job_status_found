@@ -69,6 +69,7 @@ def run_migrations_online() -> None:
         TypeError: The caller passed something other than a SQLAlchemy
             `Connection` as `config.attributes["connection"]`.
     """
+    # Use the caller's connection when it passed one, such as a test.
     connection = config.attributes.get("connection")
     if isinstance(connection, Connection):
         run_migrations_over_connection(connection)
@@ -78,6 +79,8 @@ def run_migrations_online() -> None:
             f'config.attributes["connection"] must be a Connection, not {type(connection)}.'
         )
         raise TypeError(error_message)
+
+    # Otherwise connect to the configured database for this run only.
     engine = create_engine(get_app_settings().database_url, poolclass=NullPool)
     try:
         with engine.connect() as new_connection:
