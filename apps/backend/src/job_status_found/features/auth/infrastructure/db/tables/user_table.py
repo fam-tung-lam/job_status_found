@@ -44,12 +44,6 @@ class UserTable(Base):
     role: Mapped[str]
     """Instance-level role: `user` or `admin`."""
 
-    terms_version: Mapped[str]
-    """Version of the terms the user accepted at sign-up."""
-
-    terms_accepted_at: Mapped[datetime]
-    """When the user accepted those terms."""
-
     suspended_at: Mapped[datetime | None]
     """When the account was suspended; while set, sign-in and refresh fail."""
 

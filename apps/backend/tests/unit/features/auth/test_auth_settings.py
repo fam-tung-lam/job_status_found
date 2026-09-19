@@ -10,7 +10,6 @@ def test_a_rejected_secret_setting_stays_out_of_the_startup_error(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Given: an HMAC key shorter than the 32 characters the settings require.
-    monkeypatch.setenv("JSF_AUTH_TERMS_VERSION", "2026-09-18")
     monkeypatch.setenv("JSF_AUTH_HMAC_KEY", "too-short-but-still-secret")
 
     # When: the auth settings are loaded.

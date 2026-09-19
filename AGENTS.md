@@ -158,7 +158,7 @@ Expand an alias only when the entire user message is that alias:
   - the condition under which it does nothing or returns nothing:
     `create_unverified_user_unless_email_taken`, not `add_unverified`;
   - the fields it writes when it writes only some:
-    `replace_name_and_accepted_terms`, not `update_registration`.
+    `replace_first_and_last_name`, not `update_registration`.
 - Use the precise verb, never a generic one such as `save`, `record`,
   `update`, `handle`, `process`, or `check` alone. `create`, `replace`, `set`,
   `lock`, `issue`, and `find` each say more. A `find_` method returns nothing

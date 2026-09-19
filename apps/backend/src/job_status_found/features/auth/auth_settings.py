@@ -23,9 +23,6 @@ class AuthSettings(BaseSettings):
     hmac_key: Annotated[SecretStr, Field(min_length=32)]
     """Server key for HMAC-SHA-256 of emailed codes; at least 32 characters, never logged."""
 
-    terms_version: str
-    """Version of the terms of use and privacy policy a new account accepts at sign-up."""
-
     password_min_length: Annotated[int, Field(ge=8, le=128)] = 12
     """Fewest Unicode code points a new password may have; the maximum is always 128."""
 

@@ -106,8 +106,6 @@ def _build_user_row(_connection: Connection, _given: Mapping[str, object]) -> di
         "email": email,
         "email_normalized": email,
         "role": "user",
-        "terms_version": "2026-09-18",
-        "terms_accepted_at": NOW,
         "created_at": NOW,
         "updated_at": NOW,
     }

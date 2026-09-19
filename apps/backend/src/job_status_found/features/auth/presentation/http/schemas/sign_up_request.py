@@ -59,7 +59,7 @@ def _refuse_password_not_encodable_as_utf8(password: str) -> str:
 
 
 class SignUpRequest(BaseModel):
-    """What the sign-up page submits; the backend stamps the terms version itself."""
+    """What the sign-up page submits to create an account with email and password."""
 
     model_config = ConfigDict(
         frozen=True,

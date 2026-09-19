@@ -24,7 +24,6 @@ services:
       JSF_DATABASE_USER: ${JSF_DATABASE_USER:?set in .env}
       JSF_DATABASE_PASSWORD: ${JSF_DATABASE_PASSWORD:?set in .env}
       JSF_AUTH_HMAC_KEY: ${JSF_AUTH_HMAC_KEY:?set in .env}
-      JSF_AUTH_TERMS_VERSION: ${JSF_AUTH_TERMS_VERSION:?set in .env}
       JSF_SMTP_SENDER: ${JSF_SMTP_SENDER:?set in .env}
       JSF_SMTP_HOST: ${JSF_SMTP_HOST:?set in .env}
       JSF_SMTP_PORT: ${JSF_SMTP_PORT:-587}

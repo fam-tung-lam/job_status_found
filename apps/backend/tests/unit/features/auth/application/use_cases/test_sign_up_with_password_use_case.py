@@ -100,7 +100,6 @@ class TestSignUpWithPasswordUseCase:
             email_sender=self.email_sender,
             settings=SignUpSettings(
                 password_policy=PasswordPolicy(min_length=12),
-                terms_version="2026-09-18",
                 verification_code_lifetime=CODE_LIFETIME,
                 email_send_interval=SEND_INTERVAL,
             ),
@@ -177,7 +176,7 @@ class TestSignUpWithPasswordUseCase:
 
         # Then: the account, its password, and its open code stay as they were,
         # so the owner can only confirm the password the code was mailed for.
-        self.users.replace_name_and_accepted_terms.assert_not_awaited()
+        self.users.replace_first_and_last_name.assert_not_awaited()
         self.password_credentials.set_password_hash.assert_not_awaited()
         self.email_challenges.replace_open_email_challenge.assert_not_awaited()
         # And: no email goes out.
@@ -205,7 +204,7 @@ class TestSignUpWithPasswordUseCase:
             VERIFIED_USER.id, "existing_account_notice_sent", NOW
         )
         # And: the account itself never changes.
-        self.users.replace_name_and_accepted_terms.assert_not_awaited()
+        self.users.replace_first_and_last_name.assert_not_awaited()
         self.password_credentials.set_password_hash.assert_not_awaited()
 
     async def test_a_verified_email_within_the_interval_gets_no_second_notice(self) -> None:

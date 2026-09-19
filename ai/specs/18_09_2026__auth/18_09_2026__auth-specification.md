@@ -62,6 +62,7 @@ Out of scope for now, with the extension point:
 | Admin console, impersonation          | New use cases guarded by the `admin` role                                                           |
 | Opening email links in the mobile app | `app_links` 7.2.1 with Universal Links and App Links                                                |
 | Apple and LinkedIn sign-in            | A new `provider` value, its verifier configuration, and its console setup; the flows stay the same  |
+| Record of the accepted terms version  | The last MVP change: `users.terms_version` and `terms_accepted_at`, stamped at sign-up from a `JSF_AUTH_TERMS_VERSION` setting and restamped by a replacing sign-up |
 
 ## 3. Architecture
 
@@ -280,7 +281,7 @@ sequenceDiagram
     else Email belongs to a verified user
         AuthApi ->> MailServer: SENDS "you already have an account" notice
     else Email belongs to an unverified user, last code over 60 seconds ago
-        AuthApi ->> Database: UPDATES password hash, name, terms, and code hash
+        AuthApi ->> Database: UPDATES password hash, name, and code hash
         AuthApi ->> MailServer: SENDS 6-digit code
     else Email belongs to an unverified user, last code within 60 seconds
         AuthApi ->> AuthApi: CHANGES nothing and SENDS nothing
@@ -300,8 +301,8 @@ sequenceDiagram
   email goes out after the response, and the response waits for a minimum
   response time (500 ms), because the branches' own database work differs by
   a few milliseconds.
-- The third branch overwrites the unverified user's password, name, and
-  accepted terms, and mails a new code. Nobody has proven that mailbox yet, so
+- The third branch overwrites the unverified user's password and name, and
+  mails a new code. Nobody has proven that mailbox yet, so
   the latest sign-up wins, and the code decides which account gets verified.
 - Within 60 seconds of the last code, the third branch changes nothing, so the
   earliest sign-up wins there. A password replaced without a new email would
@@ -707,8 +708,8 @@ once on an unknown `kid`, and pins `RS256`. No provider-specific SDK is needed.
 `features/auth/auth_settings.py`):
 issuer and audience, JWT key ring, HMAC key, every lifetime in section 5, the
 password minimum length, the sign-up minimum response time, cookie name and
-`secure` flag, client redirect allow-list, web app base URL, terms version,
-and per provider the client ids, secrets. `AuthSettings` is separate from the
+`secure` flag, client redirect allow-list, web app base URL, and per provider
+the client ids, secrets. `AuthSettings` is separate from the
 database settings, so a migration runs without the auth secrets; the
 application checks it at start-up. The SMTP server is core's: host, port,
 security (`none`, `starttls`, or `tls`), credentials, and sender as
@@ -846,8 +847,9 @@ icon beside it is dropped.
   carry a typed email along as a query parameter. "Forgot your password?"
   opens `ForgotPasswordRoute` the same way.
 - "Terms of Use" and "Privacy Policy" open `AppSettings.termsUrl` and
-  `AppSettings.privacyUrl` in the browser through `url_launcher`. The backend
-  stamps `terms_version` from its own setting; the app sends none.
+  `AppSettings.privacyUrl` in the browser through `url_launcher`. The app sends
+  no terms version; recording the accepted version is out of scope for now
+  (section 2).
 - Every text in the table is a member of the sealed `AuthStrings` class, reached
   through `AppStrings`. The wordmark is `AppStrings.appWordmark`; the existing
   `appTitle` ("Job Status Found") stays the window and task-switcher title.

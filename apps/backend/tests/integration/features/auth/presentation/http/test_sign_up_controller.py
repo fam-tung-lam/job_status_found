@@ -39,9 +39,6 @@ SIGN_UP_PATH = "/v1/auth/sign-up"
 HMAC_KEY = "integration-test-hmac-key-with-32-plus-characters"
 """The auth HMAC key the tests configure, so they can hash a mailed code themselves."""
 
-TERMS_VERSION = "2026-09-19-integration"
-"""The terms version the tests configure, which a new account must record."""
-
 STUBBED_START_TIME = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
 """The instant the stubbed `utc_now` tells unless a test moves it."""
 
@@ -53,7 +50,6 @@ MAILPIT_API_URL = f"http://localhost:{os.environ.get('MAILPIT_WEB_PORT', '8025')
 def auth_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Configure the auth settings the tests rely on, and drop the cached ones around the test."""
     monkeypatch.setenv("JSF_AUTH_HMAC_KEY", HMAC_KEY)
-    monkeypatch.setenv("JSF_AUTH_TERMS_VERSION", TERMS_VERSION)
     monkeypatch.setenv("JSF_AUTH_VERIFICATION_CODE_LIFETIME", "PT10M")
     # Only the test of the response-time floor waits for one.
     monkeypatch.setenv("JSF_AUTH_SIGN_UP_MIN_RESPONSE_TIME", "PT0S")
@@ -187,8 +183,6 @@ def _insert_verified_user(database_engine: Engine, address: str) -> None:
                     UserTable.first_name: "Jane",
                     UserTable.last_name: "Doe",
                     UserTable.role: "user",
-                    UserTable.terms_version: "2026-01-01",
-                    UserTable.terms_accepted_at: STUBBED_START_TIME,
                     UserTable.created_at: STUBBED_START_TIME,
                     UserTable.updated_at: STUBBED_START_TIME,
                 }
@@ -212,11 +206,10 @@ def test_a_new_email_stores_an_unverified_account_and_mails_its_code(
 
     # Then: the API accepts with an empty body.
     assert (response.status_code, response.content) == (202, b"")
-    # And: an unverified account keeps the typed email and the configured terms.
+    # And: an unverified account keeps the typed email and the submitted name.
     user = _read_user_row(database_engine, mailbox_address)
     assert (user.email, user.email_verified_at) == (typed_address, None)
     assert (user.first_name, user.last_name) == ("Jane", "Doe")
-    assert (user.terms_version, user.terms_accepted_at) == (TERMS_VERSION, STUBBED_START_TIME)
     # And: the password is stored only as an Argon2id hash that verifies it.
     password_hash = _read_password_hash(database_engine, user.id)
     assert password_hash.startswith("$argon2id$")

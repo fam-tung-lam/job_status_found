@@ -3,7 +3,7 @@
 - Status: implemented
 - Spec trace: §6.1 (request part), §6.2 (hashing cost), §7 `POST /sign-up`,
   §9 (password policy length, enumeration, CORS, secrets, notices), §10
-  (ports, settings, Compose), §11.2 (terms version)
+  (ports, settings, Compose)
 - Blocked by: T-01
 - Blocks: T-03
 
@@ -26,8 +26,6 @@ have an account" notice.
   has too little entropy for a bare hash (§9).
 - Argon2id at 64 MiB must neither block the event loop nor exhaust the 512 MiB
   container (§6.2).
-- The app sends no terms version. The backend stamps `terms_version` from its
-  own setting (§11.2).
 - This is the first auth endpoint, the first `POST` from a browser, and the
   first problem response. Later tickets reuse the error format, the hasher, the
   mail sender, and the challenge logic.
@@ -51,7 +49,6 @@ have an account" notice.
   email, and the existing-account notice (§4, §9). Mail goes out after the
   commit; a send failure is logged (§10).
 - Mailpit in `docker-compose.override.yml` (§10).
-- `terms_version` and `terms_accepted_at` stamped from settings.
 - `Clock` and `SecretGenerator` ports, so expiry and codes are deterministic
   (§10). Built as `Clock` (now in core), `VerificationCodeGenerator`, and
   `VerificationCodeHasher`, since replaced by the injected helpers `utc_now`
@@ -63,9 +60,9 @@ have an account" notice.
   origin regex, methods `GET, POST, PUT, DELETE`, headers
   `Authorization, Content-Type` (§9).
 - Settings under `JSF_AUTH_`: HMAC key as `SecretStr`, SMTP host, port,
-  security, credentials, and sender, terms version, the password minimum, the
-  verification code's lifetime and send interval, and the sign-up minimum
-  response time, with placeholders in `apps/backend/.env.example` (R-1).
+  security, credentials, and sender, the password minimum, the verification
+  code's lifetime and send interval, and the sign-up minimum response time,
+  with placeholders in `apps/backend/.env.example` (R-1).
 
 ## Out of scope
 
@@ -80,9 +77,8 @@ have an account" notice.
   (§6.1).
 - The email of a verified user changes no account data, and Mailpit receives
   the existing-account notice, at most once per 60 seconds (§6.1, §9).
-- The email of an unverified user replaces its password hash, name, and
-  accepted terms, and Mailpit receives a new code that replaces the open one
-  (§6.1).
+- The email of an unverified user replaces its password hash and name, and
+  Mailpit receives a new code that replaces the open one (§6.1).
 - Within 60 seconds of the previous code for the same user, the sign-up
   changes nothing, sends no code, and the open code stays valid (§5, R-2).
 - All branches return 202 with an identical body, and response times do not
@@ -94,7 +90,6 @@ have an account" notice.
 - No stored value holds the code or the password in the clear. No log record
   or `auth_events` row holds a password, code, or raw email (§9).
 - A browser on an allowed origin can send a credentialed `POST` (§9).
-- The new user's `terms_version` equals the configured version (§11.2).
 
 ## Evidence required
 

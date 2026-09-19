@@ -64,7 +64,6 @@ async def test_two_concurrent_sign_ups_create_one_account_without_an_error(
         email=EmailAddress(unique_address),
         first_name="Jane",
         last_name="Doe",
-        terms_version="2026-09-18",
         registered_at=NOW,
     )
     async with (

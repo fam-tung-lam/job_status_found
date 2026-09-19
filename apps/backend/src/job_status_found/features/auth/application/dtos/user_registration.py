@@ -19,8 +19,5 @@ class UserRegistration:
     last_name: str
     """Family name."""
 
-    terms_version: str
-    """Version of the terms the person accepted by signing up."""
-
     registered_at: datetime
-    """When the person signed up; also when they accepted the terms."""
+    """When the person signed up."""

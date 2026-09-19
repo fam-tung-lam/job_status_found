@@ -167,7 +167,6 @@ async def get_sign_up_with_password_use_case(
         email_sender=email_sender,
         settings=SignUpSettings(
             password_policy=PasswordPolicy(min_length=settings.password_min_length),
-            terms_version=settings.terms_version,
             verification_code_lifetime=settings.verification_code_lifetime,
             email_send_interval=settings.verification_code_send_interval,
         ),

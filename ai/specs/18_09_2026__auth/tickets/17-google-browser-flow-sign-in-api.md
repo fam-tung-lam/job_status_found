@@ -72,7 +72,7 @@ user.
 - The exchange IP throttle, 20/min, on T-14's throttle (§9).
 - On each sign-in, `external_identities.email`, `email_verified`, and
   `last_signed_in_at` are updated. A created user gets `avatar_url` from the
-  `picture` claim and the configured `terms_version` (ERD).
+  `picture` claim (ERD).
 - Provider tokens are discarded after the ID token is verified (D-7).
 - Settings: Google client id and secret as `SecretStr`, the client redirect
   allow-list (`com.ptlam.jobstatusfound:/oauth-callback` and

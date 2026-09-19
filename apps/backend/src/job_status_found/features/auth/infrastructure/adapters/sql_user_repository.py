@@ -48,8 +48,6 @@ class SqlUserRepository:
                     UserTable.first_name: registration.first_name,
                     UserTable.last_name: registration.last_name,
                     UserTable.role: _NEW_USER_ROLE,
-                    UserTable.terms_version: registration.terms_version,
-                    UserTable.terms_accepted_at: registration.registered_at,
                     UserTable.created_at: registration.registered_at,
                     UserTable.updated_at: registration.registered_at,
                 }
@@ -81,10 +79,10 @@ class SqlUserRepository:
             return None
         return User(id=row.id, email=row.email, email_verified_at=row.email_verified_at)
 
-    async def replace_name_and_accepted_terms(
+    async def replace_first_and_last_name(
         self, owner_id: UUID, registration: UserRegistration
     ) -> None:
-        """Replace an account's name and accepted terms with those of a later sign-up.
+        """Replace an account's first and last name with those of a later sign-up.
 
         Args:
             owner_id: The account to update.
@@ -97,8 +95,6 @@ class SqlUserRepository:
                 {
                     UserTable.first_name: registration.first_name,
                     UserTable.last_name: registration.last_name,
-                    UserTable.terms_version: registration.terms_version,
-                    UserTable.terms_accepted_at: registration.registered_at,
                     UserTable.updated_at: registration.registered_at,
                 }
             )

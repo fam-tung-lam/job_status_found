@@ -63,7 +63,7 @@ verification page, and lands signed in on the home page.
   `password_breached` shows "This password appears in known data breaches.
   Choose another." under the password field (§11.2).
 - "Terms of Use" and "Privacy Policy" open their configured URLs in the
-  browser, and the app sends no terms version (§11.2).
+  browser (§11.2).
 - "Register" and "Log in" move between the two pages and keep the typed email
   (§11.2).
 - Signing in with an unverified account opens the verification page with the

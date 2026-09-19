@@ -44,9 +44,6 @@ class SignUpSettings:
     password_policy: PasswordPolicy
     """The length bounds a new password must meet."""
 
-    terms_version: str
-    """Version of the terms a person accepts by signing up."""
-
     verification_code_lifetime: timedelta
     """How long an emailed verification code stays valid."""
 
@@ -136,7 +133,6 @@ class SignUpWithPasswordUseCase:
             email=EmailAddress(sign_up.email),
             first_name=sign_up.first_name,
             last_name=sign_up.last_name,
-            terms_version=self._settings.terms_version,
             registered_at=now,
         )
 
@@ -221,7 +217,7 @@ class SignUpWithPasswordUseCase:
             await self._unit_of_work.commit()
             logger.info("Sign-up left unverified user %s unchanged within the interval", user.id)
             return
-        await self._users.replace_name_and_accepted_terms(user.id, registration)
+        await self._users.replace_first_and_last_name(user.id, registration)
         await self._password_credentials.set_password_hash(user.id, password_hash, now)
         verification_code = await self._issue_verification_code(user.id, now)
         await self._unit_of_work.commit()

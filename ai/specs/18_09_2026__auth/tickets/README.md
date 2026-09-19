@@ -1,7 +1,8 @@
 # Ticket plan: Authentication and authorization
 
 - Status: blocked
-- Updated: 2026-09-19 (T-02 implemented; DEC-7 added)
+- Updated: 2026-09-19 (T-02 implemented; DEC-7 added; terms version recording
+  deferred to the last MVP change)
 - Source spec:
   [18_09_2026__auth-specification.md](../18_09_2026__auth-specification.md),
   whole document ("Authentication and authorization specification"), with
@@ -209,6 +210,7 @@ starts.
 | Writer for `users.locale`                                      | No behavior in the spec sets it; the column stays null                                                       | ERD              |
 | Least-privilege database role for the app                      | First deployment: the app and migrations connect as the PostgreSQL bootstrap superuser. Create a separate application role and keep the owner role for migrations and the throwaway-database tests | §9 |
 | Remove-password use case                                       | The ERD names it as an enforcer of "at least one sign-in method", but the spec neither lists nor exposes it. T-21 is the only enforcer | ERD, §10 |
+| Record of the accepted terms version                           | The last MVP change. A new revision restores `users.terms_version` and `terms_accepted_at`, which revision `0002` dropped; sign-up (T-02) and Google sign-up (T-17) stamp them from a `JSF_AUTH_TERMS_VERSION` setting. Until then, T-08's legal line links the documents but nothing records acceptance | §2, ERD |
 
 ### Risks
 
