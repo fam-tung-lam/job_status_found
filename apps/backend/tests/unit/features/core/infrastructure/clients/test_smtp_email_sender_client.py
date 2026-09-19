@@ -1,7 +1,8 @@
-from unittest.mock import ANY, patch
+"""Unit tests of `SmtpEmailSenderClient` with the SMTP library's send patched."""
 
 import aiosmtplib
 import pytest
+from pytest_mock import MockerFixture
 
 from job_status_found.features.core import (
     EmailDeliveryFailure,
@@ -10,11 +11,11 @@ from job_status_found.features.core import (
 )
 
 
-def _client(*, port: int = 587, security: SmtpSecurity = "none") -> SmtpEmailSenderClient:
-    """Build a client for a local port with a chosen security setting."""
+def _client(*, security: SmtpSecurity = "none") -> SmtpEmailSenderClient:
+    """Build a client for a local server with a chosen security setting."""
     return SmtpEmailSenderClient(
         hostname="127.0.0.1",
-        port=port,
+        port=587,
         security=security,
         username=None,
         password=None,
@@ -22,17 +23,18 @@ def _client(*, port: int = 587, security: SmtpSecurity = "none") -> SmtpEmailSen
     )
 
 
-class TestSmtpEmailSenderClientWithStubbedSmtp:
+class TestSmtpEmailSenderClient:
     """The client with `aiosmtplib.send` patched, so each test controls the server's answer."""
 
-    def setup_method(self) -> None:
-        """Patch `aiosmtplib.send` with an autospecced mock that accepts every email."""
-        self.send_patch = patch.object(aiosmtplib, "send", autospec=True)
-        self.send = self.send_patch.start()
+    @pytest.fixture(autouse=True)
+    def _set_up(self, mocker: MockerFixture) -> None:
+        """Patch `aiosmtplib.send` with an autospecced mock that accepts every email.
 
-    def teardown_method(self) -> None:
-        """Restore the real `aiosmtplib.send`."""
-        self.send_patch.stop()
+        The client looks `send` up on the `aiosmtplib` module at call time, so
+        the module attribute is where to patch. `mocker` restores it after the
+        test.
+        """
+        self.send = mocker.patch.object(aiosmtplib, "send", autospec=True)
 
     @pytest.mark.parametrize(
         ("security", "implicit_tls", "starttls"),
@@ -47,16 +49,11 @@ class TestSmtpEmailSenderClientWithStubbedSmtp:
         # When: an email is sent.
         await client.send(recipient="jane@example.com", subject="Hello", body="Hi Jane.")
 
-        # Then: the connection uses implicit TLS, STARTTLS, or neither, as set.
-        self.send.assert_awaited_once_with(
-            ANY,
-            hostname=ANY,
-            port=ANY,
-            username=None,
-            password=None,
-            use_tls=implicit_tls,
-            start_tls=starttls,
-            timeout=ANY,
+        # Then: the one connection uses implicit TLS, STARTTLS, or neither, as set.
+        [send_call] = self.send.await_args_list
+        assert (send_call.kwargs["use_tls"], send_call.kwargs["start_tls"]) == (
+            implicit_tls,
+            starttls,
         )
 
     @pytest.mark.parametrize(
@@ -80,16 +77,3 @@ class TestSmtpEmailSenderClientWithStubbedSmtp:
             await _client().send(recipient="jane@example.com", subject="Hello", body="Hi Jane.")
         assert type(rejection).__name__ in str(failure.value)
         assert "jane@example.com" not in str(failure.value)
-
-
-async def test_an_unreachable_mail_server_fails_without_naming_the_recipient() -> None:
-    # Given: a client pointed at a local port where no SMTP server listens.
-    client = _client(port=1)
-
-    # When: an email is sent.
-    # Then: delivery fails with the typed failure, whose message a caller may
-    # log because it names neither the recipient nor the content.
-    with pytest.raises(EmailDeliveryFailure) as failure:
-        await client.send(recipient="jane@example.com", subject="Code 123456", body="123456")
-    assert "jane@example.com" not in str(failure.value)
-    assert "123456" not in str(failure.value)

@@ -1,6 +1,7 @@
 """Create an account with email and password, or email its owner instead."""
 
 import logging
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
@@ -20,14 +21,7 @@ from job_status_found.features.auth.application.ports.email_challenge_repository
 from job_status_found.features.auth.application.ports.password_credential_repository import (
     PasswordCredentialRepository,
 )
-from job_status_found.features.auth.application.ports.password_hasher import PasswordHasher
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
-from job_status_found.features.auth.application.ports.verification_code_generator import (
-    VerificationCodeGenerator,
-)
-from job_status_found.features.auth.application.ports.verification_code_hasher import (
-    VerificationCodeHasher,
-)
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.domain.failures.sign_up_failure import SignUpPasswordTooWeak
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
@@ -35,7 +29,7 @@ from job_status_found.features.auth.domain.value_objects.email_challenge_purpose
     EmailChallengePurpose,
 )
 from job_status_found.features.auth.domain.value_objects.password_policy import PasswordPolicy
-from job_status_found.features.core import Clock, UnitOfWork
+from job_status_found.features.core import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
@@ -85,10 +79,10 @@ class SignUpWithPasswordUseCase:
         email_challenges: EmailChallengeRepository,
         auth_events: AuthEventRepository,
         unit_of_work: UnitOfWork,
-        password_hasher: PasswordHasher,
-        verification_code_generator: VerificationCodeGenerator,
-        verification_code_hasher: VerificationCodeHasher,
-        clock: Clock,
+        hash_password: Callable[[str], Awaitable[str]],
+        generate_verification_code: Callable[[], str],
+        hash_verification_code: Callable[[str], bytes],
+        utc_now: Callable[[], datetime],
         email_sender: AuthEmailSender,
         settings: SignUpSettings,
     ) -> None:
@@ -100,10 +94,11 @@ class SignUpWithPasswordUseCase:
             email_challenges: Stores emailed codes.
             auth_events: Records sent notices, which pace the next one.
             unit_of_work: Commits the writes of every repository at once.
-            password_hasher: Hashes the password with Argon2id.
-            verification_code_generator: Creates verification codes.
-            verification_code_hasher: Hashes verification codes with the server key.
-            clock: Tells the current instant.
+            hash_password: Hashes a password with Argon2id without blocking the
+                event loop.
+            generate_verification_code: Creates a 6-digit verification code.
+            hash_verification_code: Hashes a verification code with the server key.
+            utc_now: Tells the current instant.
             email_sender: Delivers the code or the notice.
             settings: The configured rules.
         """
@@ -112,10 +107,10 @@ class SignUpWithPasswordUseCase:
         self._email_challenges = email_challenges
         self._auth_events = auth_events
         self._unit_of_work = unit_of_work
-        self._password_hasher = password_hasher
-        self._verification_code_generator = verification_code_generator
-        self._verification_code_hasher = verification_code_hasher
-        self._clock = clock
+        self._hash_password = hash_password
+        self._generate_verification_code = generate_verification_code
+        self._hash_verification_code = hash_verification_code
+        self._utc_now = utc_now
         self._email_sender = email_sender
         self._settings = settings
 
@@ -133,8 +128,8 @@ class SignUpWithPasswordUseCase:
         policy = self._settings.password_policy
         if not policy.validate(sign_up.password):
             raise SignUpPasswordTooWeak(min_length=policy.min_length, max_length=policy.max_length)
-        password_hash = await self._password_hasher.hash(sign_up.password)
-        now = self._clock.now()
+        password_hash = await self._hash_password(sign_up.password)
+        now = self._utc_now()
         registration = UserRegistration(
             email=EmailAddress(sign_up.email),
             first_name=sign_up.first_name,
@@ -239,12 +234,12 @@ class SignUpWithPasswordUseCase:
         Returns:
             The code in the clear, to mail after the commit.
         """
-        code = self._verification_code_generator.generate_verification_code()
+        code = self._generate_verification_code()
         await self._email_challenges.replace_open(
             NewEmailChallenge(
                 owner_id=user_id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
-                secret_hash=self._verification_code_hasher.hash_verification_code(code),
+                secret_hash=self._hash_verification_code(code),
                 created_at=now,
                 expires_at=now + self._settings.verification_code_lifetime,
             )

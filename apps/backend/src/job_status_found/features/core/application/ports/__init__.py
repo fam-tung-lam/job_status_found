@@ -1,1 +1,1 @@
-"""Ports every feature's use cases may depend on: time and the transaction."""
+"""Ports every feature's use cases may depend on: the transaction."""

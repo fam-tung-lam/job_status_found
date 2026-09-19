@@ -1,3 +1,5 @@
+"""Unit tests of loading `AppSettings` from the environment."""
+
 import pytest
 from pydantic import ValidationError
 

@@ -1,3 +1,5 @@
+"""Unit tests of the `EmailAddress` value object."""
+
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
 
 

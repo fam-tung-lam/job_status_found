@@ -611,7 +611,7 @@ filled by every feature's tables package), plus `alembic.ini` and
 `features/core` feature, never in `app/`, which no feature imports. Its facade
 publishes the database shell (`infrastructure/db/db.py`: declarative `Base`
 with the column type map, async engine lifespan, session factory, request
-session dependency), the `Clock` and `UnitOfWork` ports with their providers,
+session dependency), the `UnitOfWork` port and the `utc_now` helper with their providers,
 `SmtpEmailSenderClient`, which sends any plain-text email and raises
 `EmailDeliveryFailure`, with core's `AppSettings` (`JSF_SMTP_*`) configuring it,
 the RFC 9457 models and helpers, the 422 handler, the FastAPI class whose
@@ -637,13 +637,13 @@ features/auth/
 │   ├── value_objects/     # email_address.py, identity_provider.py, client_kind.py, user_role.py
 │   └── failures/          # one module per operation, listed below
 ├── infrastructure/
-│   ├── adapters/          # sql_*_repository.py, argon2_password_hasher.py,
-│   │                      # secure_random_verification_code_generator.py,
-│   │                      # hmac_verification_code_hasher.py,
+│   ├── adapters/          # sql_*_repository.py,
 │   │                      # jwt_access_token_codec.py, oidc_id_token_verifier.py,
 │   │                      # authlib_authorization_code_client.py, smtp_auth_email_sender.py,
 │   │                      # deferred_auth_email_sender.py, pwned_passwords_breach_checker.py,
 │   │                      # limits_request_throttle.py
+│   ├── helpers/           # one function per file: hash_password.py,
+│   │                      # generate_verification_code.py, hash_verification_code.py, ...
 │   └── db/tables/         # one <name>_table.py per table in auth-erd.md
 └── presentation/
     ├── http/              # auth_router.py (prefix /auth), one <operation>_controller.py per
@@ -655,21 +655,25 @@ features/auth/
 **Ports** (`application/ports/`): `UserRepository`, `PasswordCredentialRepository`,
 `ExternalIdentityRepository`, `SessionRepository`, `EmailChallengeRepository`,
 `OAuthAuthorizationAttemptRepository`, `AuthEventRepository`,
-`PasswordHasher`, `VerificationCodeGenerator`, `VerificationCodeHasher`,
 `AccessTokenCodec`,
 `IdTokenVerifier`, `AuthorizationCodeClient`, `AuthEmailSender`,
-`BreachedPasswordChecker`, `RequestThrottle`. Use cases also take `UnitOfWork`
-and `Clock` from `features/core`, whose `di.py` provides them. `UnitOfWork`
-commits the session every SQL repository of one operation shares.
-`VerificationCodeGenerator` creates the 6-digit codes, and
-`VerificationCodeHasher` computes their HMAC-SHA-256 with the server key. Every
-other random value gets its own generator and, where it is stored, its own
-hasher, named after that value, such as for reset link tokens, refresh tokens,
-and exchange codes, never one generic "secret" generator. `Clock` and these generators make expiry and token values
+`BreachedPasswordChecker`, `RequestThrottle`. Use cases also take the
+`UnitOfWork` port and the `utc_now` helper from `features/core`, whose `di.py`
+provides them. `UnitOfWork` commits the session every SQL repository of one
+operation shares.
+
+**Helpers** (`infrastructure/helpers/`, one function per file, injected into a
+use case as a `Callable` argument, never a port): `hash_password` runs Argon2id
+in a worker thread under the lifespan's limiter, `generate_verification_code`
+creates the 6-digit codes, and `hash_verification_code` computes their
+HMAC-SHA-256 with the server key. Every other random value gets its own
+generator and, where it is stored, its own hasher, named after that value, such
+as for reset link tokens, refresh tokens, and exchange codes, never one generic
+"secret" generator. `utc_now` and these generators make expiry and token values
 deterministic in tests.
 
-**Use cases** (`<Verb><Noun>UseCase`, one public `invoke`, every port passed as
-its own keyword-only constructor argument):
+**Use cases** (`<Verb><Noun>UseCase`, one public `invoke`, every port and
+helper passed as its own keyword-only constructor argument):
 `SignUpWithPasswordUseCase`, `ConfirmEmailVerificationUseCase`,
 `ResendEmailVerificationUseCase`, `SignInWithPasswordUseCase`,
 `SignInWithIdTokenUseCase`, `StartOAuthAuthorizationUseCase`,
@@ -1000,8 +1004,8 @@ Each phase ships with its tests and leaves the app working.
 Project rules apply: paths mirror source, Given-When-Then comments, mocks only
 at the lowest boundary we do not control.
 
-- **Backend unit.** Every use case against mocked ports with a fixed `Clock`
-  and fixed code and token generators. Required cases: each branch of section 6.5, each of the
+- **Backend unit.** Every use case against mocked ports and stubbed helpers,
+  with a fixed `utc_now` and fixed code and token generators. Required cases: each branch of section 6.5, each of the
   five refresh outcomes in section 5, the three sign-up branches, code attempt
   exhaustion, the reset request branches, a weak password that leaves the
   reset token usable, and every lifetime boundary.

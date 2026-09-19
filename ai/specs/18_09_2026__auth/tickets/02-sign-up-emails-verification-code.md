@@ -40,7 +40,7 @@ have an account" notice.
   keeps the typed form as `email-validator` normalizes it (ERD).
 - The length part of the password policy: 12 to 128 Unicode code points, else
   `password_too_weak` (§9). The breach check lands in T-15.
-- `PasswordHasher` on `pwdlib[argon2]` 0.3.1 with
+- `hash_password` on `pwdlib[argon2]` 0.3.1 with
   `PasswordHash.recommended()`, run through `anyio.to_thread` behind a
   semaphore of 4 (§4, §6.2).
 - The `verify_email` challenge: a 6-digit code, stored as an HMAC-SHA-256
@@ -54,7 +54,8 @@ have an account" notice.
 - `terms_version` and `terms_accepted_at` stamped from settings.
 - `Clock` and `SecretGenerator` ports, so expiry and codes are deterministic
   (§10). Built as `Clock` (now in core), `VerificationCodeGenerator`, and
-  `VerificationCodeHasher`.
+  `VerificationCodeHasher`, since replaced by the injected helpers `utc_now`
+  (core), `generate_verification_code`, and `hash_verification_code`.
 - `pydantic[email]` for `EmailStr` (§4).
 - RFC 9457 problem responses with the `code` member, the §7 status mapping,
   and exception handlers registered in `app/app.py` (§7).
@@ -161,6 +162,8 @@ Decisions made while building, which the spec and ERD now record:
   `VerificationCodeGenerator` creates codes and `VerificationCodeHasher`
   computes their HMAC; they replaced the earlier `SecretGenerator` and
   `SecretHasher`, whose "secret" read like a password. `AuthEventRepository` records notices.
+  Those two ports, `PasswordHasher`, and `Clock` later became helper functions
+  (§10), because each is one operation with no state of its own.
 - **Packages.** `pydantic[email]` resolved `email-validator` 2.3.0. Mailpit is
   `axllent/mailpit:v1.31.1`, pinned by digest.
 

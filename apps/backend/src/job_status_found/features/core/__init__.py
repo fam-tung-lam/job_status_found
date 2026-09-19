@@ -5,12 +5,11 @@ Core imports no other feature and nothing from `app/`.
 """
 
 from job_status_found.features.core.app_settings import AppSettings, get_settings
-from job_status_found.features.core.application.ports.clock import Clock
 from job_status_found.features.core.application.ports.unit_of_work import UnitOfWork
 from job_status_found.features.core.di import (
-    get_clock,
     get_smtp_email_sender_client,
     get_unit_of_work,
+    get_utc_now,
 )
 from job_status_found.features.core.infrastructure.clients.smtp_email_sender_client import (
     EmailDeliveryFailure,
@@ -48,7 +47,6 @@ __all__ = [
     "PROBLEM_JSON_MEDIA_TYPE",
     "AppSettings",
     "Base",
-    "Clock",
     "EmailDeliveryFailure",
     "InvalidInputProblemDetails",
     "IpAddress",
@@ -59,11 +57,11 @@ __all__ = [
     "SmtpSecurity",
     "SurrogateKey",
     "UnitOfWork",
-    "get_clock",
     "get_database_session",
     "get_settings",
     "get_smtp_email_sender_client",
     "get_unit_of_work",
+    "get_utc_now",
     "handle_request_validation_error",
     "open_database",
     "problem_details_content",

@@ -1,3 +1,5 @@
+"""Unit tests of loading `AuthSettings` from the environment."""
+
 import pytest
 from pydantic import ValidationError
 

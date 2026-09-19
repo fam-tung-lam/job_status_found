@@ -1,3 +1,5 @@
+"""API tests of `GET /health`."""
+
 from fastapi.testclient import TestClient
 
 

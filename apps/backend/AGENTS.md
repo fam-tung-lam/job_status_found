@@ -38,10 +38,11 @@
   - the database shell in `infrastructure/db/db.py`: the declarative `Base`,
     the column types such as `SurrogateKey`, the engine lifespan
     `open_database`, and the request session `get_database_session`;
-  - the `Clock` and `UnitOfWork` ports, their `SystemClock` and
-    `SqlUnitOfWork` adapters, and the `get_clock` and `get_unit_of_work`
-    providers in `core/di.py`. A feature's `di.py` injects them, so its
-    repositories and its unit of work share one request session;
+  - the `UnitOfWork` port, its `SqlUnitOfWork` adapter, and the
+    `get_unit_of_work` provider in `core/di.py`. A feature's `di.py` injects
+    it, so its repositories and its unit of work share one request session;
+  - the `utc_now` helper and its `get_utc_now` provider, which a feature's
+    `di.py` injects, so an API test can control the time;
   - the RFC 9457 error shape (schemas, response helpers, the 422 handler, and
     `ProblemDetailsFastAPI`, which documents them);
   - clients for external systems that several features use, in
@@ -58,9 +59,9 @@
     its values has a default or comes from `.env`;
   - `settings_config`, which every settings class uses.
 
-  A port or adapter moves into core once a second feature needs it; one that
-  holds a feature's own rule or key, such as
-  `VerificationCodeHasher` with the auth HMAC key, stays in that feature. A feature
+  A port, adapter, or helper moves into core once a second feature needs it;
+  one that holds a feature's own rule or key, such as
+  `hash_verification_code` with the auth HMAC key, stays in that feature. A feature
   maps each of its failures to a problem once, in a handler that `app.py`
   registers. Code outside core imports only its facade,
   `job_status_found.features.core`, and every name it publishes is in that
@@ -79,8 +80,32 @@
   needs through a provider, such as `get_sign_up_min_response_time`.
 - A feature's use cases live in `application/use_cases/`, such as
   `check_health_use_case.py` with `CheckHealthUseCase`.
+- A collaborator with state or several operations, such as a repository, the
+  unit of work, or an email sender, is a port: a `Protocol` in
+  `application/ports/`, implemented by a class in `infrastructure/adapters/`.
+- A single operation with no state of its own, such as hashing a password,
+  generating or hashing a verification code, or reading the time, is a helper
+  function instead, never a `Protocol` with an adapter class:
+  - One function per file in `infrastructure/helpers/`, named verb first after
+    what it does to which value, such as `hash_password.py` with
+    `hash_password`. It sits in infrastructure because it wraps a library, the
+    operating system, or a secret. A pure rule without any of those belongs in
+    `domain/`, and a use case calls it directly.
+  - The input comes first; configuration and shared resources follow as
+    keyword-only arguments, such as `hmac_key` or `limiter`. `di.py` binds them
+    with `functools.partial`, so the use case sees only the input.
+  - A use case never imports a helper. It takes it as a keyword-only
+    `Callable` argument named after it, such as
+    `hash_password: Callable[[str], Awaitable[str]]`, and calls
+    `self._hash_password(password)`.
+  - `di.py` passes a helper directly, such as
+    `generate_verification_code=generate_verification_code`. A helper that
+    needs the request, or that an API test must replace, gets a provider named
+    `get_<helper>` instead, such as `get_hash_password`, which binds the
+    lifespan's limiter, or `get_utc_now`.
+  - A helper that gains state or a second operation becomes a port.
 - A use case's constructor takes each collaborator (every port, such as a
-  repository, hasher, clock, or sender) as its own keyword-only argument,
+  repository or sender, and every helper) as its own keyword-only argument,
   such as `users: UserRepository`. Never bundle collaborators into a container
   object such as `SignUpPorts`: each dependency stays visible in the signature
   and in `di.py`. Configured values may share one frozen settings dataclass,
@@ -118,31 +143,54 @@
   column. Register each feature's tables package in `app/alembic_metadata.py`.
   Revisions live in `migrations/versions/`; read every operation of a
   generated revision before applying it.
+
+## Tests
+
 - Tests live in `tests/{unit,integration}/` followed by the module's path
   under `src/job_status_found/`, as `test_<module>.py`, such as
   `tests/integration/features/health/presentation/http/test_health_controller.py`.
   A controller's test is named after its module, such as
-  `test_sign_up_controller.py`, and a schema's test sits under `schemas/`.
-- A unit test replaces a collaborator with a `unittest.mock` double, never a
-  hand-written fake class: `create_autospec(<Port>, instance=True)`, so a call
-  that does not match the port's signature fails.
-- Mock-based tests live in a `Test<Subject>` class that sets its mocks up
-  explicitly and tears them down:
-  - `setup_method` creates fresh mocks as attributes, stubs what every test in
-    the class shares, and builds the subject by passing each mock directly by
-    keyword, such as `users=self.users`. Never bundle mocks into a holder
-    object or hide the construction in a fixture.
-  - `teardown_method` resets every mock with
-    `reset_mock(return_value=True, side_effect=True)`, or stops a patch
-    started in `setup_method`, such as `patch.object(aiosmtplib, "send",
-    autospec=True)`.
-  - Use `setup_class` and `teardown_class` only for an expensive resource the
-    tests cannot change; mocks are always per test.
+  `test_sign_up_controller.py`, and a schema's test sits under `schemas/`. A
+  revision's test mirrors its path under `migrations/`.
+- pytest runs with `--import-mode=importlib`, so a unit and an integration
+  test of one module share its `test_<module>.py` name. A test module never
+  imports another; shared fixtures go in the `conftest.py` of the nearest
+  folder that holds all their users, such as `tests/integration/`.
+- Every test double comes from pytest-mock's `mocker` fixture, never from
+  `unittest.mock` directly and never from a hand-written fake class:
+  - A port: `mocker.create_autospec(<Port>, instance=True)`, so a call that
+    does not match the port's signature fails.
+  - An injected helper: `mocker.stub(name="<helper>")`, or
+    `mocker.async_stub(name="<helper>")` for an async one, such as
+    `mocker.async_stub(name="hash_password")`. ty checks every call against
+    the use case's `Callable` type.
+  - A library function: `mocker.patch.object(<module>, "<name>",
+    autospec=True)` on the module the code under test looks it up from, such
+    as `mocker.patch.object(aiosmtplib, "send", autospec=True)`. `mocker`
+    undoes it after the test; never use `patch` as a decorator or context
+    manager, or start and stop it by hand.
+  - Matchers and recorders come from `mocker` too, such as `mocker.Mock()`
+    and `mocker.call`.
+- An API test runs a fresh `create_app()` through `TestClient` used as a
+  context manager, so the lifespan runs. It replaces a dependency only through
+  that app's `dependency_overrides`, such as `get_utc_now`, never by patching
+  the module that defines it. Environment settings go through
+  `monkeypatch.setenv` and a fixture that clears the cached getter, such as
+  `get_auth_settings.cache_clear()`, before and after the test.
+- Mock-based unit tests live in a `Test<Subject>` class whose autouse fixture
+  sets its mocks up explicitly:
+  - An `@pytest.fixture(autouse=True)` method `_set_up(self, mocker)` creates
+    fresh mocks as attributes, stubs what every test in the class shares, and
+    builds the subject by passing each mock directly by keyword, such as
+    `users=self.users`. Never bundle mocks into a holder object or build the
+    subject in a fixture a test requests by name.
+  - Write no teardown for mocks: each test gets new ones, and `mocker` undoes
+    its patches.
+  - Mocks are always per test; never use `class_mocker` or a wider scope.
 - A test stubs what decides its own case in the Given step with
   `return_value` or `side_effect`, and asserts the awaited calls that make up
   the effect, such as `assert_awaited_once_with` or `assert_not_awaited`.
-  Record call order across mocks with `attach_mock` on one `Mock()`.
-  A revision's test mirrors its path under `migrations/`.
+  Record call order across mocks with `attach_mock` on one `mocker.Mock()`.
 - A revision's test runs it against a throwaway PostgreSQL database. It checks
   only what the database does: upgrade from empty, downgrade to base, no
   difference from the mapped tables, and the rules PostgreSQL itself enforces,

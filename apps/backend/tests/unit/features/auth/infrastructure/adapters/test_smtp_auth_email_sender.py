@@ -1,8 +1,10 @@
+"""Unit tests of `SmtpAuthEmailSender` against a mock of the shared SMTP client."""
+
 import logging
 from datetime import timedelta
-from unittest.mock import create_autospec
 
 import pytest
+from pytest_mock import MockerFixture
 
 from job_status_found.features.auth.infrastructure.adapters.smtp_auth_email_sender import (
     SmtpAuthEmailSender,
@@ -13,14 +15,11 @@ from job_status_found.features.core import EmailDeliveryFailure, SmtpEmailSender
 class TestSmtpAuthEmailSender:
     """The auth email sender against an autospecced mock of the SMTP client."""
 
-    def setup_method(self) -> None:
+    @pytest.fixture(autouse=True)
+    def _set_up(self, mocker: MockerFixture) -> None:
         """Create a fresh client mock and the sender that delivers through it."""
-        self.client = create_autospec(SmtpEmailSenderClient, instance=True)
+        self.client = mocker.create_autospec(SmtpEmailSenderClient, instance=True)
         self.sender = SmtpAuthEmailSender(client=self.client)
-
-    def teardown_method(self) -> None:
-        """Clear the client mock's calls and stubs, so no state reaches another test."""
-        self.client.reset_mock(return_value=True, side_effect=True)
 
     async def test_a_failed_delivery_is_logged_without_the_recipient_or_code(
         self, caplog: pytest.LogCaptureFixture

@@ -1,3 +1,5 @@
+"""Integration tests of the database lifespan and request session against PostgreSQL."""
+
 from collections.abc import Iterator
 from typing import Annotated
 
@@ -11,10 +13,13 @@ from job_status_found.app.app import create_app
 from job_status_found.features.core import get_database_session, get_settings
 
 
-# The default database name and `.env` both say `job_status_found`, so the test
-# points at the server's `postgres` database to prove the setting is used.
 @pytest.fixture
 def postgres_database_configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Name the server's `postgres` database in the settings, and drop the cached ones around.
+
+    The default database name and `.env` both say `job_status_found`, so only
+    another name proves the setting is used.
+    """
     monkeypatch.setenv("JSF_DATABASE_NAME", "postgres")
     get_settings.cache_clear()
     yield
@@ -23,6 +28,7 @@ def postgres_database_configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[No
 
 @pytest.fixture
 def unreachable_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Point the settings at a port where no database listens, and drop the cached ones around."""
     monkeypatch.setenv("JSF_DATABASE_HOST", "127.0.0.1")
     monkeypatch.setenv("JSF_DATABASE_PORT", "1")
     get_settings.cache_clear()
@@ -38,6 +44,7 @@ def _create_app_reporting_its_database_name() -> FastAPI:
     async def read_database_name(
         session: Annotated[AsyncSession, Depends(get_database_session)],
     ) -> str:
+        """Report the name of the database the request session is connected to."""
         return str(await session.scalar(text("SELECT current_database()")))
 
     return app

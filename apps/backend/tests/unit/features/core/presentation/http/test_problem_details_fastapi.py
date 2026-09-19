@@ -1,3 +1,5 @@
+"""Unit tests of the OpenAPI document `ProblemDetailsFastAPI` builds."""
+
 from fastapi import status
 from pydantic import BaseModel
 
@@ -8,6 +10,7 @@ class _Body(BaseModel):
     """A request body, so the route can fail validation with a 422."""
 
     name: str
+    """A required field, so a body without it is invalid."""
 
 
 def test_the_openapi_document_describes_errors_as_problem_json() -> None:
@@ -20,7 +23,8 @@ def test_the_openapi_document_describes_errors_as_problem_json() -> None:
             status.HTTP_400_BAD_REQUEST: {"description": "x", "content": problem_details_content()}
         },
     )
-    async def create_thing(body: _Body) -> None: ...
+    async def create_thing(body: _Body) -> None:
+        """Accept a thing; only the route's OpenAPI description matters here."""
 
     # When: the OpenAPI document is built.
     document = app.openapi()

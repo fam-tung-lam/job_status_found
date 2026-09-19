@@ -1,3 +1,5 @@
+"""API tests of the application-wide middleware that `create_app` installs."""
+
 from fastapi.testclient import TestClient
 
 

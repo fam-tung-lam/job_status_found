@@ -109,6 +109,11 @@ Localization rules:
 - Acquire and release test resources in `setUp`, `tearDown`, `setUpAll`, and
   `tearDownAll`. Never use `addTearDown`.
 - Create every mock with `mocktail`; never hand-write a fake or stub class.
+- A helper, as the root `AGENTS.md` defines it, is one top-level function in
+  `lib/features/<name>/<layer>/helpers/<verb>_<noun>.dart`, such as
+  `hashPassword` in `hash_password.dart`. A class takes it as a function-typed
+  constructor parameter, and a test passes a closure that returns what the
+  case needs instead of a mocktail mock.
 - In a local integration test, mock only the lowest API outside our control,
   such as `JobStatusFoundHttpClient` or a storage plugin. Never mock a
   repository, use case, or feature client; run them for real.

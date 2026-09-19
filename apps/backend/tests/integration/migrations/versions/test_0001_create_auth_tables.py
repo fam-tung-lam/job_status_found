@@ -1,3 +1,5 @@
+"""Integration tests of revision `0001` against throwaway PostgreSQL databases."""
+
 from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
@@ -16,8 +18,10 @@ from job_status_found.app.alembic_metadata import metadata
 from job_status_found.features.core import AppSettings
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
+"""The instant every timestamp column of an inserted row holds."""
 
 type RowBuilder = Callable[[Connection, Mapping[str, object]], dict[str, object]]
+"""Builds valid values for one table's row from the values a test supplies."""
 
 
 @contextmanager
@@ -59,6 +63,7 @@ def _downgrade_to_base(config: Config) -> None:
 
 @pytest.fixture
 def empty_database() -> Iterator[Engine]:
+    """Connect to a new empty database, dropped after the test."""
     with _throwaway_database() as url:
         engine = create_engine(url, poolclass=NullPool)
         yield engine
@@ -67,6 +72,7 @@ def empty_database() -> Iterator[Engine]:
 
 @pytest.fixture(scope="module")
 def migrated_database(pytestconfig: pytest.Config) -> Iterator[Engine]:
+    """Connect to a new database at the head revision, shared by the module's tests."""
     with _throwaway_database() as url:
         engine = create_engine(url, poolclass=NullPool)
         _run_alembic(engine, pytestconfig.rootpath, _upgrade_to_head)
@@ -74,9 +80,12 @@ def migrated_database(pytestconfig: pytest.Config) -> Iterator[Engine]:
         engine.dispose()
 
 
-# Each test's writes are rolled back, so tests share one migrated database.
 @pytest.fixture
 def connection(migrated_database: Engine) -> Iterator[Connection]:
+    """Open a transaction on the migrated database and roll it back after the test.
+
+    The rollback is what lets the tests share one migrated database.
+    """
     with migrated_database.connect() as connection:
         transaction = connection.begin()
         yield connection
@@ -361,8 +370,6 @@ def test_a_session_rejects_a_revocation_reason_without_its_instant_or_the_revers
         _insert(connection, "sessions", revoked_at=revoked_at, revocation_reason=revocation_reason)
 
 
-# Each closed vocabulary from the ERD: its values, a realistic value the ERD
-# leaves out, and any column the row needs alongside it.
 VOCABULARIES: list[tuple[str, str, list[str], str, dict[str, object]]] = [
     ("users", "role", ["user", "admin"], "owner", {}),
     ("external_identities", "provider", ["google"], "apple", {}),
@@ -399,6 +406,11 @@ VOCABULARIES: list[tuple[str, str, list[str], str, dict[str, object]]] = [
     ),
     ("oauth_authorization_attempts", "client_kind", ["web", "ios", "android"], "desktop", {}),
 ]
+"""Each closed vocabulary from the ERD, with a realistic value outside it.
+
+An entry holds the table, the column, its values, a realistic value the ERD
+leaves out, and any column the row needs alongside it.
+"""
 
 
 @pytest.mark.parametrize(

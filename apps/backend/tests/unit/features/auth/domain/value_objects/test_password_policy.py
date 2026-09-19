@@ -1,10 +1,14 @@
+"""Unit tests of the `PasswordPolicy` value object."""
+
 import pytest
 
 from job_status_found.features.auth.domain.value_objects.password_policy import PasswordPolicy
 
-# Four bytes in UTF-8 but one code point, so a policy that counted bytes would
-# accept 11 of them and refuse 128.
 FOUR_BYTE_CHARACTER = "🔒"
+"""Four bytes in UTF-8 but one code point.
+
+A policy that counted bytes would accept 11 of them and refuse 128.
+"""
 
 
 @pytest.mark.parametrize(

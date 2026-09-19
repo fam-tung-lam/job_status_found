@@ -1,3 +1,9 @@
+"""API tests of `POST /v1/auth/sign-up` against PostgreSQL and Mailpit.
+
+Only `utc_now` is replaced, through `app.dependency_overrides`, so each test
+chooses the instant of every sign-up.
+"""
+
 import hashlib
 import hmac
 import logging
@@ -13,6 +19,7 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from pwdlib import PasswordHash
+from pytest_mock import MockerFixture, MockType
 from sqlalchemy import Engine, create_engine, delete, insert, select
 from sqlalchemy.pool import NullPool
 
@@ -24,25 +31,27 @@ from job_status_found.features.auth.infrastructure.db.tables import (
     PasswordCredentialTable,
     UserTable,
 )
-from job_status_found.features.core import get_clock, get_settings
+from job_status_found.features.core import get_settings, get_utc_now
 
 SIGN_UP_PATH = "/v1/auth/sign-up"
+"""The endpoint under test."""
+
 HMAC_KEY = "integration-test-hmac-key-with-32-plus-characters"
+"""The auth HMAC key the tests configure, so they can hash a mailed code themselves."""
+
 TERMS_VERSION = "2026-09-19-integration"
+"""The terms version the tests configure, which a new account must record."""
+
 T0 = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
+"""The instant the stubbed `utc_now` tells unless a test moves it."""
+
 MAILPIT_API = f"http://localhost:{os.environ.get('MAILPIT_WEB_PORT', '8025')}/api/v1"
-
-
-class SettableClock:
-    def __init__(self) -> None:
-        self.now_value = T0
-
-    def now(self) -> datetime:
-        return self.now_value
+"""Mailpit's HTTP API, which lists the emails the SMTP server received."""
 
 
 @pytest.fixture
 def auth_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Configure the auth settings the tests rely on, and drop the cached ones around the test."""
     monkeypatch.setenv("JSF_AUTH_HMAC_KEY", HMAC_KEY)
     monkeypatch.setenv("JSF_AUTH_TERMS_VERSION", TERMS_VERSION)
     monkeypatch.setenv("JSF_AUTH_VERIFICATION_CODE_LIFETIME", "PT10M")
@@ -54,32 +63,37 @@ def auth_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture
-def clock() -> SettableClock:
-    return SettableClock()
+def utc_now(mocker: MockerFixture) -> MockType:
+    """Stub the current time at `T0`; a test moves it by setting `utc_now.return_value`."""
+    utc_now = mocker.stub(name="utc_now")
+    utc_now.return_value = T0
+    return utc_now
 
 
-# A fresh application per test, so the clock override leaves with it.
 @pytest.fixture
-def client(auth_settings: None, clock: SettableClock) -> Iterator[TestClient]:
+def client(auth_settings: None, utc_now: MockType) -> Iterator[TestClient]:
+    """Run a fresh application with the stubbed time, so the override leaves with it."""
     app = create_app()
-    app.dependency_overrides[get_clock] = lambda: clock
+    app.dependency_overrides[get_utc_now] = lambda: utc_now
     with TestClient(app, follow_redirects=False) as test_client:
         yield test_client
 
 
 @pytest.fixture
 def database(auth_settings: None) -> Iterator[Engine]:
+    """Connect to the application's database, to arrange and read rows directly."""
     engine = create_engine(get_settings().database_url, poolclass=NullPool)
     yield engine
     engine.dispose()
 
 
-# Hands out unique mailboxes; their accounts and Mailpit messages go afterwards.
 @pytest.fixture
 def new_mailbox(database: Engine) -> Iterator[Callable[[], str]]:
+    """Hand out unique addresses, and delete their accounts and Mailpit emails afterwards."""
     addresses: list[str] = []
 
     def create() -> str:
+        """Create a new unique address."""
         addresses.append(f"jane.{uuid4().hex}@example.com")
         return addresses[-1]
 
@@ -95,6 +109,7 @@ def new_mailbox(database: Engine) -> Iterator[Callable[[], str]]:
 
 @pytest.fixture
 def mailbox(new_mailbox: Callable[[], str]) -> str:
+    """Hand out one unique address, cleaned up after the test."""
     return new_mailbox()
 
 
@@ -247,11 +262,11 @@ def test_a_verified_email_answers_like_a_new_one_changes_nothing_and_mails_a_not
 
 
 def test_an_unverified_email_after_the_send_interval_takes_the_new_password_name_and_code(
-    client: TestClient, database: Engine, clock: SettableClock, mailbox: str
+    client: TestClient, database: Engine, utc_now: MockType, mailbox: str
 ) -> None:
     # Given: an unverified account whose code was mailed an hour ago.
     _sign_up(client, mailbox)
-    clock.now_value = T0 + timedelta(hours=1)
+    utc_now.return_value = T0 + timedelta(hours=1)
 
     # When: someone signs up again with that email.
     response = _sign_up(client, mailbox, first_name="Janet", password="second password")

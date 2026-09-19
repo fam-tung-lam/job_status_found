@@ -26,10 +26,10 @@ refresh token only as an `HttpOnly` cookie.
 - This ticket introduces session issuance. T-05, T-17, and T-25 reuse it.
 - T-02 left these for this ticket to reuse: the problem helpers in the
   `features.core` facade and the exception handlers registered in
-  `app/app.py`, `AuthSettings`, the `EmailChallengeRepository`,
-  `VerificationCodeGenerator`, `VerificationCodeHasher`, `Clock`, and
-  `AuthEmailSender` ports with
-  their adapters, the deferred mail after the response, and the sign-up's
+  `app/app.py`, `AuthSettings`, the `EmailChallengeRepository` and
+  `AuthEmailSender` ports with their adapters, the
+  `generate_verification_code`, `hash_verification_code`, and `utc_now`
+  helpers, the deferred mail after the response, and the sign-up's
   minimum response time, which resend needs for the same enumeration reason.
 - DEC-7 may add the password to the confirm request, because the code alone
   cannot tell the mailbox owner which password it confirms. RISK-11 asks for a cap on

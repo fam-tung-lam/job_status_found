@@ -1,8 +1,10 @@
+"""Unit tests of `SignUpWithPasswordUseCase` against a mock of each collaborator."""
+
 from datetime import UTC, datetime, timedelta
-from unittest.mock import Mock, call, create_autospec
 from uuid import uuid4
 
 import pytest
+from pytest_mock import MockerFixture
 
 from job_status_found.features.auth.application.dtos.new_email_challenge import (
     NewEmailChallenge,
@@ -18,14 +20,7 @@ from job_status_found.features.auth.application.ports.email_challenge_repository
 from job_status_found.features.auth.application.ports.password_credential_repository import (
     PasswordCredentialRepository,
 )
-from job_status_found.features.auth.application.ports.password_hasher import PasswordHasher
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
-from job_status_found.features.auth.application.ports.verification_code_generator import (
-    VerificationCodeGenerator,
-)
-from job_status_found.features.auth.application.ports.verification_code_hasher import (
-    VerificationCodeHasher,
-)
 from job_status_found.features.auth.application.use_cases.sign_up_with_password_use_case import (
     SignUpSettings,
     SignUpWithPasswordUseCase,
@@ -36,14 +31,25 @@ from job_status_found.features.auth.domain.value_objects.email_challenge_purpose
     EmailChallengePurpose,
 )
 from job_status_found.features.auth.domain.value_objects.password_policy import PasswordPolicy
-from job_status_found.features.core import Clock, UnitOfWork
+from job_status_found.features.core import UnitOfWork
 
 NOW = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
+"""The instant the stubbed `utc_now` tells for every sign-up."""
+
 CODE_LIFETIME = timedelta(minutes=15)
+"""How long a verification code stays valid under the test settings."""
+
 SEND_INTERVAL = timedelta(seconds=60)
+"""Shortest time between two sign-up emails to one user under the test settings."""
+
 JUST_UNDER_THE_INTERVAL = SEND_INTERVAL - timedelta(microseconds=1)
+"""The longest gap that is still inside the send interval."""
+
 UNVERIFIED_USER = User(id=uuid4(), email="Jane.Doe@Example.com", email_verified_at=None)
+"""An account whose owner has not confirmed the email yet."""
+
 VERIFIED_USER = User(id=uuid4(), email="Jane.Doe@Example.com", email_verified_at=NOW)
+"""An account whose owner confirmed the email."""
 
 
 def _sign_up(password: str = "second password") -> SignUpInput:
@@ -54,30 +60,32 @@ def _sign_up(password: str = "second password") -> SignUpInput:
 
 
 class TestSignUpWithPasswordUseCase:
-    """The sign-up use case against an autospecced mock of each port.
+    """The sign-up use case against a mock of each port and injected helper function.
 
-    Autospec makes a call that does not match a port's signature fail the test.
+    Autospec makes a call that does not match a port's signature fail the test;
+    ty checks the calls to each helper against the use case's `Callable` types.
     """
 
-    def setup_method(self) -> None:
-        """Create fresh port mocks, stub what every test shares, and build the use case."""
-        self.users = create_autospec(UserRepository, instance=True)
-        self.password_credentials = create_autospec(PasswordCredentialRepository, instance=True)
-        self.email_challenges = create_autospec(EmailChallengeRepository, instance=True)
-        self.auth_events = create_autospec(AuthEventRepository, instance=True)
-        self.unit_of_work = create_autospec(UnitOfWork, instance=True)
-        self.password_hasher = create_autospec(PasswordHasher, instance=True)
-        self.verification_code_generator = create_autospec(VerificationCodeGenerator, instance=True)
-        self.verification_code_hasher = create_autospec(VerificationCodeHasher, instance=True)
-        self.clock = create_autospec(Clock, instance=True)
-        self.email_sender = create_autospec(AuthEmailSender, instance=True)
-
-        self.clock.now.return_value = NOW
-        self.password_hasher.hash.side_effect = lambda password: f"hashed:{password}"
-        self.verification_code_generator.generate_verification_code.return_value = "012345"
-        self.verification_code_hasher.hash_verification_code.side_effect = lambda code: (
-            f"keyed:{code}".encode()
+    @pytest.fixture(autouse=True)
+    def _set_up(self, mocker: MockerFixture) -> None:
+        """Create fresh mocks, stub what every test shares, and build the use case."""
+        self.users = mocker.create_autospec(UserRepository, instance=True)
+        self.password_credentials = mocker.create_autospec(
+            PasswordCredentialRepository, instance=True
         )
+        self.email_challenges = mocker.create_autospec(EmailChallengeRepository, instance=True)
+        self.auth_events = mocker.create_autospec(AuthEventRepository, instance=True)
+        self.unit_of_work = mocker.create_autospec(UnitOfWork, instance=True)
+        self.email_sender = mocker.create_autospec(AuthEmailSender, instance=True)
+        self.hash_password = mocker.async_stub(name="hash_password")
+        self.generate_verification_code = mocker.stub(name="generate_verification_code")
+        self.hash_verification_code = mocker.stub(name="hash_verification_code")
+        self.utc_now = mocker.stub(name="utc_now")
+
+        self.hash_password.side_effect = lambda password: f"hashed:{password}"
+        self.generate_verification_code.return_value = "012345"
+        self.hash_verification_code.side_effect = lambda code: f"keyed:{code}".encode()
+        self.utc_now.return_value = NOW
 
         self.use_case = SignUpWithPasswordUseCase(
             users=self.users,
@@ -85,10 +93,10 @@ class TestSignUpWithPasswordUseCase:
             email_challenges=self.email_challenges,
             auth_events=self.auth_events,
             unit_of_work=self.unit_of_work,
-            password_hasher=self.password_hasher,
-            verification_code_generator=self.verification_code_generator,
-            verification_code_hasher=self.verification_code_hasher,
-            clock=self.clock,
+            hash_password=self.hash_password,
+            generate_verification_code=self.generate_verification_code,
+            hash_verification_code=self.hash_verification_code,
+            utc_now=self.utc_now,
             email_sender=self.email_sender,
             settings=SignUpSettings(
                 password_policy=PasswordPolicy(min_length=12),
@@ -98,32 +106,18 @@ class TestSignUpWithPasswordUseCase:
             ),
         )
 
-    def teardown_method(self) -> None:
-        """Clear every mock's calls and stubs, so no state reaches another test."""
-        for port_mock in (
-            self.users,
-            self.password_credentials,
-            self.email_challenges,
-            self.auth_events,
-            self.unit_of_work,
-            self.password_hasher,
-            self.verification_code_generator,
-            self.verification_code_hasher,
-            self.clock,
-            self.email_sender,
-        ):
-            port_mock.reset_mock(return_value=True, side_effect=True)
-
     def _stub_existing_user(self, user: User) -> None:
         """Stub the users repository so the submitted email already belongs to `user`."""
         self.users.add_unverified.return_value = None
         self.users.lock_by_normalized_email.return_value = user
 
-    async def test_the_code_is_mailed_only_after_the_writes_are_committed(self) -> None:
+    async def test_the_code_is_mailed_only_after_the_writes_are_committed(
+        self, mocker: MockerFixture
+    ) -> None:
         # Given: no account exists, and one recorder that sees both the commit
         # and the email.
         self.users.add_unverified.return_value = UNVERIFIED_USER
-        order = Mock()
+        order = mocker.Mock()
         order.attach_mock(self.unit_of_work.commit, "commit")
         order.attach_mock(self.email_sender.send_verification_code, "send_verification_code")
 
@@ -133,8 +127,8 @@ class TestSignUpWithPasswordUseCase:
         # Then: the one email goes out after the one commit, so it never names a
         # code that a rolled-back transaction discarded.
         assert order.mock_calls == [
-            call.commit(),
-            call.send_verification_code(UNVERIFIED_USER.email, "012345", CODE_LIFETIME),
+            mocker.call.commit(),
+            mocker.call.send_verification_code(UNVERIFIED_USER.email, "012345", CODE_LIFETIME),
         ]
 
     async def test_an_unverified_email_takes_the_new_password_and_code_once_the_interval_passed(
@@ -186,33 +180,42 @@ class TestSignUpWithPasswordUseCase:
         self.email_sender.send_verification_code.assert_not_awaited()
 
     @pytest.mark.parametrize(
-        ("last_notice_ago", "notified"),
-        [(None, True), (JUST_UNDER_THE_INTERVAL, False), (SEND_INTERVAL, True)],
+        "last_notice_at",
+        [None, NOW - SEND_INTERVAL],
+        ids=["no-notice-yet", "notice-one-interval-ago"],
     )
-    async def test_a_verified_email_gets_at_most_one_notice_per_send_interval(
-        self, last_notice_ago: timedelta | None, notified: bool
+    async def test_a_verified_email_gets_a_recorded_notice_once_the_interval_passed(
+        self, last_notice_at: datetime | None
     ) -> None:
         # Given: a verified account whose owner got no notice yet, or got one
-        # just under or exactly one send interval ago.
+        # exactly one send interval ago.
         self._stub_existing_user(VERIFIED_USER)
-        self.auth_events.find_latest_created_at.return_value = (
-            None if last_notice_ago is None else NOW - last_notice_ago
-        )
+        self.auth_events.find_latest_created_at.return_value = last_notice_at
 
         # When: someone signs up with its email.
         await self.use_case.invoke(_sign_up())
 
-        # Then: a notice goes out, and is recorded to pace the next one, only
-        # once the interval has passed.
-        sent = self.email_sender.send_existing_account_notice.await_args_list
-        recorded = self.auth_events.record.await_args_list
-        assert sent == ([call(VERIFIED_USER.email)] if notified else [])
-        assert recorded == (
-            [call(VERIFIED_USER.id, "existing_account_notice_sent", NOW)] if notified else []
+        # Then: the owner gets a notice, recorded to pace the next one.
+        self.email_sender.send_existing_account_notice.assert_awaited_once_with(VERIFIED_USER.email)
+        self.auth_events.record.assert_awaited_once_with(
+            VERIFIED_USER.id, "existing_account_notice_sent", NOW
         )
         # And: the account itself never changes.
         self.users.update_registration.assert_not_awaited()
         self.password_credentials.save.assert_not_awaited()
+
+    async def test_a_verified_email_within_the_interval_gets_no_second_notice(self) -> None:
+        # Given: a verified account whose owner got a notice just under one send
+        # interval ago.
+        self._stub_existing_user(VERIFIED_USER)
+        self.auth_events.find_latest_created_at.return_value = NOW - JUST_UNDER_THE_INTERVAL
+
+        # When: someone signs up with its email.
+        await self.use_case.invoke(_sign_up())
+
+        # Then: no notice goes out and none is recorded.
+        self.email_sender.send_existing_account_notice.assert_not_awaited()
+        self.auth_events.record.assert_not_awaited()
 
     async def test_a_password_outside_the_policy_is_refused_before_anything_is_stored_or_sent(
         self,
@@ -224,6 +227,6 @@ class TestSignUpWithPasswordUseCase:
         # Then: the sign-up is refused before any hash, write, or email.
         with pytest.raises(SignUpPasswordTooWeak):
             await self.use_case.invoke(_sign_up(password=too_short))
-        self.password_hasher.hash.assert_not_awaited()
+        self.hash_password.assert_not_awaited()
         self.users.add_unverified.assert_not_awaited()
         self.email_sender.send_verification_code.assert_not_awaited()

@@ -75,7 +75,8 @@ all = "error"
 
 [tool.pytest]
 testpaths = ["tests"]
-addopts = ["--strict-markers", "--strict-config", "-ra"]
+# `importlib` lets a unit and an integration test of one module share a file name.
+addopts = ["--strict-markers", "--strict-config", "-ra", "--import-mode=importlib"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"

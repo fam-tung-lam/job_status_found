@@ -1,3 +1,5 @@
+"""Unit tests of the `SignUpRequest` body schema."""
+
 import pytest
 from pydantic import ValidationError
 
@@ -11,6 +13,7 @@ VALID = {
     "email": "jane@example.com",
     "password": "correct horse battery",
 }
+"""A sign-up body that passes validation, for a test to spoil one field of."""
 
 
 @pytest.mark.parametrize(

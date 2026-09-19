@@ -127,6 +127,18 @@ Expand an alias only when the entire user message is that alias:
   are `domain`, `application` (use cases and ports), `infrastructure`, and
   `presentation`. A feature holds only the layers it needs; the frontend
   `home` feature, for example, is presentation only.
+- A collaborator with state or several operations, such as a repository, is a
+  port: an interface in `application/ports/` with an implementation in
+  `infrastructure/adapters/`.
+- A single operation with no state of its own, such as hashing a password,
+  generating or hashing a verification code, or reading the time, is a helper:
+  one plain function per file in the `helpers/` folder of the layer whose work
+  it does, never an interface with an implementation class. A helper that
+  wraps a library, the operating system, or a secret sits in
+  `infrastructure/helpers/`. Only the feature's composition file (`di.py` or
+  `di.dart`) imports it; a use case or other class receives it as an injected
+  function, so a test passes a stub. Each app's `AGENTS.md` gives the
+  mechanics.
 - The app shell lives in `app/`: the composition root, settings, and routing.
 
 ## Naming
@@ -136,16 +148,19 @@ Expand an alias only when the entire user message is that alias:
 - Prefer a long, specific name over a short, generic one. Name a type,
   method, and parameter after the domain value it handles, such as a
   verification code, a reset link token, or a refresh token, and after what it
-  does to that value. `VerificationCodeGenerator.generate_verification_code()`
-  and `VerificationCodeHasher.hash_verification_code(code)` beat
-  `SecretGenerator.new_verification_code()` and
-  `SecretHasher.keyed_hash(secret)`.
+  does to that value. `generate_verification_code()` and
+  `hash_verification_code(code)` beat `new_secret()` and
+  `keyed_hash(secret)`.
 - Never use a word that suggests something else. `secret` for a code or token
   reads as a password or key. Generic words such as `data`, `info`, `manager`,
-  `helper`, `util`, or `common` say nothing about what the code does.
-- One type does one job. Split a type that does two, even for the same value:
-  a generator and a hasher of verification codes are two types, not one
-  `...GeneratorAndHasher`.
+  `helper`, `util`, or `common` say nothing about what the code does. The
+  `helpers/` folder is the one exception: it names a role, and each file in it
+  is named after its one function.
+- A helper function starts with its verb, such as `hash_password`, and its
+  file is named after it, such as `hash_password.py`.
+- One type or function does one job. Split one that does two, even for the
+  same value: generating and hashing a verification code are two helpers, not
+  one `generate_and_hash_verification_code`.
 - A use case class is `<Verb><Noun>UseCase`, such as `CheckHealthUseCase`, in
   `<verb>_<noun>_use_case.<ext>`. Its one public method is `invoke`, never
   `execute`, `call`, or `run`.
