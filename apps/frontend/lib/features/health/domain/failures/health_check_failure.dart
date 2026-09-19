@@ -13,14 +13,16 @@ sealed class const HealthCheckFailure() extends Equatable implements Exception {
 
 /// The backend did not answer, so it is probably not running or not reachable
 /// at the configured URL.
-final class const HealthCheckBackendUnreachable() extends HealthCheckFailure {
+final class const HealthCheckBackendUnreachableFailure()
+    extends HealthCheckFailure {
   /// Creates the failure.
   this;
 }
 
 /// The backend answered with a status or body this app does not understand,
 /// so the app and backend versions probably disagree.
-final class const HealthCheckUnexpectedResponse() extends HealthCheckFailure {
+final class const HealthCheckUnexpectedResponseFailure()
+    extends HealthCheckFailure {
   /// Creates the failure.
   this;
 }

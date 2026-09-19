@@ -12,7 +12,7 @@
 
 Submitting the right code and matching password to
 `POST /v1/auth/email-verification/confirm` marks the email verified and
-returns a `TokenPair`. A `web` client receives its refresh token only as an
+returns a `TokenPairResponse`. A `web` client receives its refresh token only as an
 `HttpOnly` cookie.
 
 ## Context
@@ -63,7 +63,7 @@ returns a `TokenPair`. A `web` client receives its refresh token only as an
   - `AccessTokenCodec` on `pyjwt[crypto]` 2.14.0: HS256, header
     `typ=at+jwt` and `kid`, claims `iss`, `aud` (`job-status-found-api`),
     `sub`, `sid`, `role`, `iat`, `exp`, `jti`, lifetime 15 minutes (§5);
-  - `TokenPair` with `access_token`, `expires_in`, `token_type`, and
+  - `TokenPairResponse` with `access_token`, `expires_in`, `token_type`, and
     `refresh_token`, which is absent for `web` (§7);
   - for `web`, `Set-Cookie: __Secure-jsf_refresh=...; HttpOnly; Secure;
     SameSite=Strict; Path=/v1/auth`, with `Max-Age` only for a persistent
@@ -86,7 +86,7 @@ returns a `TokenPair`. A `web` client receives its refresh token only as an
 
 - The right code and matching password within 15 minutes set
   `email_verified_at`, consume the challenge, create one session and one
-  refresh token, and return 200 `TokenPair` (§6.1, §7).
+  refresh token, and return 200 `TokenPairResponse` (§6.1, §7).
 - For `ios` and `android`, the body carries `refresh_token` (§5).
 - For `web`, the body has no `refresh_token`, and the response sets the cookie
   with `HttpOnly; Secure; SameSite=Strict; Path=/v1/auth` (§5).
@@ -128,7 +128,7 @@ tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
 | Rolling fifth-failure cap across a replacement challenge, event write, and exact expiry boundary | `tests/unit/features/auth/application/use_cases/test_confirm_email_verification_use_case.py` |
 | Unknown-email dummy password work | `tests/unit/features/auth/application/use_cases/test_confirm_email_verification_use_case.py` |
 | Resend enumeration and the 60-second branch | `tests/unit/features/auth/application/use_cases/test_resend_email_verification_use_case.py` |
-| Mobile body delivery, web cookie delivery, session lifetimes, and the complete HTTP flow | `tests/integration/features/auth/presentation/http/test_session_flow.py` and `tests/unit/features/auth/presentation/http/test_token_pair_delivery.py` |
+| Mobile body delivery, web cookie delivery, session lifetimes, and the complete HTTP flow | `tests/integration/features/auth/presentation/http/v1/test_session_flow.py` and `tests/unit/features/auth/presentation/http/v1/helpers/test_deliver_token_pair_to_client.py` |
 | JWT headers, claims, accepted key rotation, and rejection cases | `tests/unit/features/auth/infrastructure/adapters/test_jwt_access_token_codec.py` |
 
 ## Implementation notes

@@ -181,11 +181,11 @@ class _EmailSignInFormState() extends State<EmailSignInForm> {
   /// Maps one domain failure to localized copy.
   String _failureMessage(AuthStrings strings, AuthFailure failure) =>
       switch (failure) {
-        AuthRejected(code: AuthRejectionCode.invalidCredentials) =>
+        AuthRejectedFailure(code: AuthRejectionCode.invalidCredentials) =>
           strings.invalidCredentials,
-        AuthRejected(code: AuthRejectionCode.accountUnavailable) =>
+        AuthRejectedFailure(code: AuthRejectionCode.accountUnavailable) =>
           strings.accountUnavailable,
-        AuthRejected(
+        AuthRejectedFailure(
           code: AuthRejectionCode.tooManyAttempts,
           :final retryAfterSeconds,
         ) =>

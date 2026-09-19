@@ -28,7 +28,7 @@ final class const AuthApiClient(final JobStatusFoundHttpClient _httpClient) {
   }
 
   /// Opens a session with password credentials.
-  Future<TokenPairDto> signIn({
+  Future<TokenPairDTO> signIn({
     required EmailAddress email,
     required String password,
     required ClientKind clientKind,
@@ -46,7 +46,7 @@ final class const AuthApiClient(final JobStatusFoundHttpClient _httpClient) {
   );
 
   /// Opens a session after confirming the email code and password.
-  Future<TokenPairDto> confirmEmail({
+  Future<TokenPairDTO> confirmEmail({
     required EmailAddress email,
     required String code,
     required String password,
@@ -74,23 +74,23 @@ final class const AuthApiClient(final JobStatusFoundHttpClient _httpClient) {
   }
 
   /// Refreshes a web cookie session explicitly after a reload.
-  Future<TokenPairDto> refreshWebSession() async =>
+  Future<TokenPairDTO> refreshWebSession() async =>
       _readTokenPair(await _httpClient.post('/v1/auth/token/refresh'));
 
   /// Reads the authenticated profile.
-  Future<CurrentUserDto> fetchCurrentUser() async {
+  Future<CurrentUserDTO> fetchCurrentUser() async {
     final body = await _httpClient.get('/v1/auth/me');
     if (body is! Map<String, Object?>) {
       throw const FormatException('Invalid current-user response.');
     }
-    return CurrentUserDto.fromJson(body);
+    return CurrentUserDTO.fromJson(body);
   }
 
   /// Decodes one token-pair response.
-  TokenPairDto _readTokenPair(Object? body) {
+  TokenPairDTO _readTokenPair(Object? body) {
     if (body is! Map<String, Object?>) {
       throw const FormatException('Invalid token pair.');
     }
-    return TokenPairDto.fromJson(body);
+    return TokenPairDTO.fromJson(body);
   }
 }

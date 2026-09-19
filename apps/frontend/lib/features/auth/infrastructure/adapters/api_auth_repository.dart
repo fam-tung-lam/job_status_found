@@ -41,10 +41,16 @@ final class const ApiAuthRepository(
       Error.throwWithStackTrace(_toFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
       await _clearTokens();
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     } on Exception catch (_, stackTrace) {
       await _clearTokens();
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     }
   }
 
@@ -62,7 +68,10 @@ final class const ApiAuthRepository(
         };
       }
     } on Exception catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     }
   }
 
@@ -117,7 +126,7 @@ final class const ApiAuthRepository(
 
   /// Stores tokens then resolves the current user, cleaning up partial state.
   Future<SignedInUser> _openSession(
-    Future<TokenPairDto> Function() createTokens,
+    Future<TokenPairDTO> Function() createTokens,
   ) async {
     try {
       await _storeTokens(await createTokens());
@@ -130,14 +139,20 @@ final class const ApiAuthRepository(
     } on JobStatusFoundHttpClientException catch (exception, stackTrace) {
       Error.throwWithStackTrace(_toFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     } on Exception catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     }
   }
 
   /// Persists the returned tokens.
-  Future<void> _storeTokens(TokenPairDto tokens) =>
+  Future<void> _storeTokens(TokenPairDTO tokens) =>
       _httpClient.setTokens(tokens.toAuthTokens());
 
   /// Translates failures for an operation without a result.
@@ -147,9 +162,15 @@ final class const ApiAuthRepository(
     } on JobStatusFoundHttpClientException catch (exception, stackTrace) {
       Error.throwWithStackTrace(_toFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     } on Exception catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     }
   }
 
@@ -161,12 +182,12 @@ final class const ApiAuthRepository(
           :final retryAfterSeconds,
         ) =>
           code == null
-              ? const AuthServerUnreachable()
-              : AuthRejected(
+              ? const AuthServerUnreachableFailure()
+              : AuthRejectedFailure(
                   AuthRejectionCode.fromWireName(code),
                   retryAfterSeconds: retryAfterSeconds,
                 ),
-        _ => const AuthServerUnreachable(),
+        _ => const AuthServerUnreachableFailure(),
       };
 
   /// Deletes partial session state and maps storage failures to the auth
@@ -175,7 +196,10 @@ final class const ApiAuthRepository(
     try {
       await _httpClient.clearTokens();
     } on Exception catch (_, stackTrace) {
-      Error.throwWithStackTrace(const AuthServerUnreachable(), stackTrace);
+      Error.throwWithStackTrace(
+        const AuthServerUnreachableFailure(),
+        stackTrace,
+      );
     }
   }
 }

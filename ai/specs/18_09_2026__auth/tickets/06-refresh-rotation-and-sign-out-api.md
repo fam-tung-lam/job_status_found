@@ -10,7 +10,7 @@
 ## Outcome
 
 `POST /v1/auth/token/refresh` rotates the refresh token and returns a new
-`TokenPair`. Replaying a spent token ends the session. `POST /v1/auth/sign-out`
+`TokenPairResponse`. Replaying a spent token ends the session. `POST /v1/auth/sign-out`
 ends it on request.
 
 ## Context
@@ -49,8 +49,8 @@ ends it on request.
   (cookie or body) or the bearer token. It revokes the session with
   `signed_out`, revokes its refresh tokens, clears the cookie, and returns 204
   (§7, ERD).
-- `SessionRefreshFailure` with `SessionRefreshTokenInvalid` and
-  `SessionRefreshSessionEnded` (§10).
+- `SessionRefreshFailure` with `SessionRefreshTokenInvalidFailure` and
+  `SessionRefreshSessionEndedFailure` (§10).
 - Session revocation that sets `revoked_at` and `revocation_reason` together
   and revokes the session's refresh tokens (ERD).
 
@@ -96,9 +96,9 @@ tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
 | Evidence | Where |
 |----------|-------|
 | Rotation, idle-expiry clamp, grace retry, exact grace boundary, origin rejection, and every ended-session state | `tests/unit/features/auth/application/use_cases/test_refresh_session_use_case.py` |
-| Unknown and exact-expiry refresh tokens, web cookie rotation, and concurrent PostgreSQL refresh locking | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Unknown and exact-expiry refresh tokens, web cookie rotation, and concurrent PostgreSQL refresh locking | `tests/integration/features/auth/presentation/http/v1/test_session_flow.py` |
 | Refresh-token precedence, bearer fallback only for an unknown refresh token, and recognized spent-token sign-out | `tests/unit/features/auth/application/use_cases/test_sign_out_use_case.py` |
-| Cookie, body, and bearer sign-out in the HTTP contract | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Cookie, body, and bearer sign-out in the HTTP contract | `tests/integration/features/auth/presentation/http/v1/test_session_flow.py` |
 
 ## Implementation notes
 

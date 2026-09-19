@@ -9,7 +9,7 @@
 
 ## Outcome
 
-`POST /v1/auth/sign-in` returns a `TokenPair` to a verified person with the
+`POST /v1/auth/sign-in` returns a `TokenPairResponse` to a verified person with the
 right password. Otherwise it fails with `invalid_credentials`,
 `email_verification_required`, or `account_unavailable`.
 
@@ -30,9 +30,9 @@ right password. Otherwise it fails with `invalid_credentials`,
 
 - `SignInWithPasswordUseCase` and `POST /v1/auth/sign-in`. The request carries
   email, password, `client_kind`, and `remember_me` (§5).
-- `PasswordSignInFailure` with `PasswordSignInInvalidCredentials`,
-  `PasswordSignInEmailNotVerified`, and `PasswordSignInAccountUnavailable`
-  (§10). `PasswordSignInThrottled` lands in T-14.
+- `PasswordSignInFailure` with `PasswordSignInInvalidCredentialsFailure`,
+  `PasswordSignInEmailNotVerifiedFailure`, and `PasswordSignInAccountUnavailableFailure`
+  (§10). `PasswordSignInThrottledFailure` lands in T-14.
 - The dummy verification for an unknown email or a social-only user (§6.2).
 - An unverified user with the right password: a fresh `verify_email` code,
   subject to the 60-second interval, then 403 `email_verification_required`
@@ -52,7 +52,7 @@ right password. Otherwise it fails with `invalid_credentials`,
 
 ## Acceptance
 
-- A verified, active user with the right password gets 200 `TokenPair` and a
+- A verified, active user with the right password gets 200 `TokenPairResponse` and a
   new session, delivered per `client_kind` (§5, §7).
 - An unknown email, a wrong password, and a social-only user all get 401
   `invalid_credentials` with `WWW-Authenticate: Bearer`, and their response
@@ -87,7 +87,7 @@ tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
 | Evidence | Where |
 |----------|-------|
 | Unknown-email and social-only dummy verification, hashed audit event, successful rehash, and session commit | `tests/unit/features/auth/application/use_cases/test_sign_in_with_password_use_case.py` |
-| Verified success, unverified resend, suspended-account disclosure only after a valid password, and the HTTP failure contract | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Verified success, unverified resend, suspended-account disclosure only after a valid password, and the HTTP failure contract | `tests/integration/features/auth/presentation/http/v1/test_session_flow.py` |
 | Controlled local timing parity | Fresh migrated disposable PostgreSQL, production Argon2, 2 warmups plus 15 interleaved requests per class: medians 26.99 ms social-only, 29.05 ms unknown, and 29.19 ms wrong password; maximum median spread 2.20 ms (8.15%); means 27.99/28.93/28.94 ms; p90 30.00/30.30/30.50 ms |
 
 The timing result is controlled local evidence, not a production network

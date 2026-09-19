@@ -6,8 +6,8 @@ from uuid import UUID
 from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
 from job_status_found.features.auth.domain.entities.email_challenge import EmailChallenge
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
@@ -46,7 +46,7 @@ class SqlEmailChallengeRepository:
             )
         )
 
-    async def replace_open_email_challenge(self, challenge: NewEmailChallenge) -> None:
+    async def replace_open_email_challenge(self, challenge: NewEmailChallengeDTO) -> None:
         """Store a challenge and delete the user's open one of the same purpose.
 
         Args:

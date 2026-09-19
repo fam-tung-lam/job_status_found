@@ -1,1 +1,1 @@
-"""HTTP endpoints of the auth feature under `/v1/auth`."""
+"""Versioned HTTP adapters of the auth feature."""

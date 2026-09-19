@@ -45,13 +45,19 @@ class TestProblemDetailsFastAPI:
         # and FastAPI's default validation body, which the app never sends, is gone.
         responses = document["paths"]["/things"]["post"]["responses"]
         assert responses["400"]["content"] == {
-            "application/problem+json": {"schema": {"$ref": "#/components/schemas/ProblemDetails"}}
+            "application/problem+json": {
+                "schema": {"$ref": "#/components/schemas/ProblemDetailsResponse"}
+            }
         }
         assert responses["422"]["content"] == {
             "application/problem+json": {
-                "schema": {"$ref": "#/components/schemas/InvalidInputProblemDetails"}
+                "schema": {"$ref": "#/components/schemas/InvalidInputProblemDetailsResponse"}
             }
         }
         schemas = document["components"]["schemas"]
-        assert {"ProblemDetails", "InvalidInputProblemDetails", "InvalidInputError"} <= set(schemas)
+        assert {
+            "ProblemDetailsResponse",
+            "InvalidInputProblemDetailsResponse",
+            "InvalidInputErrorResponse",
+        } <= set(schemas)
         assert "HTTPValidationError" not in schemas

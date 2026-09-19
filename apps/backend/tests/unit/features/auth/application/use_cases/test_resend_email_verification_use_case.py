@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.email_challenge_repository import (
@@ -92,7 +92,7 @@ class TestResendEmailVerificationUseCase:
 
         # Then: the replacement commits and its clear code is queued for mail.
         self.challenges.replace_open_email_challenge.assert_awaited_once_with(
-            NewEmailChallenge(
+            NewEmailChallengeDTO(
                 owner_id=user.id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
                 secret_hash=b"hash",

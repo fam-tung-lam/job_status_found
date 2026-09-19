@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from job_status_found.features.auth.application.dtos.session_input import SessionInput
+from job_status_found.features.auth.application.dtos.session_input_dto import SessionInputDTO
 from job_status_found.features.auth.domain.entities.session_with_refresh_token import (
     RefreshTokenChild,
     SessionWithRefreshToken,
@@ -38,7 +38,7 @@ class SqlSessionRepository:
     async def create_session(
         self,
         owner_id: UUID,
-        session_input: SessionInput,
+        session_input: SessionInputDTO,
         *,
         created_at: datetime,
         idle_expires_at: datetime,

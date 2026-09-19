@@ -9,10 +9,12 @@ from job_status_found.features.core.presentation.http.problem_details_responses 
     OPENAPI_SCHEMA_REF_TEMPLATE,
     problem_details_openapi_content,
 )
-from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details import (
-    InvalidInputProblemDetails,
+from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details_response import (  # noqa: E501
+    InvalidInputProblemDetailsResponse,
 )
-from job_status_found.features.core.presentation.http.schemas.problem_details import ProblemDetails
+from job_status_found.features.core.presentation.http.schemas.problem_details_response import (
+    ProblemDetailsResponse,
+)
 
 
 class ProblemDetailsFastAPI(FastAPI):
@@ -37,7 +39,10 @@ class ProblemDetailsFastAPI(FastAPI):
         # Register the problem schemas, and drop FastAPI's validation schemas,
         # whose body this app never sends.
         _, definitions = models_json_schema(
-            [(ProblemDetails, "serialization"), (InvalidInputProblemDetails, "serialization")],
+            [
+                (ProblemDetailsResponse, "serialization"),
+                (InvalidInputProblemDetailsResponse, "serialization"),
+            ],
             ref_template=OPENAPI_SCHEMA_REF_TEMPLATE,
         )
         schemas: dict[str, Any] = document.setdefault("components", {}).setdefault("schemas", {})
@@ -51,6 +56,8 @@ class ProblemDetailsFastAPI(FastAPI):
                 if "422" in operation.get("responses", {}):
                     operation["responses"]["422"] = {
                         "description": "`invalid_input`: a field is missing or malformed.",
-                        "content": problem_details_openapi_content(InvalidInputProblemDetails),
+                        "content": problem_details_openapi_content(
+                            InvalidInputProblemDetailsResponse
+                        ),
                     }
         return document

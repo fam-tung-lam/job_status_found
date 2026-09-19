@@ -73,7 +73,7 @@ void main() {
         email: email,
         password: 'breached password',
       ),
-    ).thenThrow(const AuthRejected(AuthRejectionCode.passwordBreached));
+    ).thenThrow(const AuthRejectedFailure(AuthRejectionCode.passwordBreached));
     final cubit = SignUpFormCubit(SignUpWithPasswordUseCase(repository));
     await tester.pumpApp(
       Scaffold(

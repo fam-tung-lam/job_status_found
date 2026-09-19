@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
 from job_status_found.features.auth.domain.entities.email_challenge import EmailChallenge
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
@@ -32,7 +32,7 @@ class EmailChallengeRepository(Protocol):
         """
         ...
 
-    async def replace_open_email_challenge(self, challenge: NewEmailChallenge) -> None:
+    async def replace_open_email_challenge(self, challenge: NewEmailChallengeDTO) -> None:
         """Store a challenge and delete the user's open one of the same purpose.
 
         Afterwards only the new challenge's code or link works.

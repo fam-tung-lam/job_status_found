@@ -114,145 +114,146 @@ class _EmailSignUpFormState() extends State<EmailSignUpForm> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      BlocConsumer<SignUpFormCubit, SignUpFormState>(
-        listener: (_, state) {
-          if (state case SignUpFormRejected(
-            failure: AuthRejected(
-              code: AuthRejectionCode.passwordTooWeak ||
-                  AuthRejectionCode.passwordBreached,
+  Widget build(
+    BuildContext context,
+  ) => BlocConsumer<SignUpFormCubit, SignUpFormState>(
+    listener: (_, state) {
+      if (state case SignUpFormRejected(
+        failure: AuthRejectedFailure(
+          code: AuthRejectionCode.passwordTooWeak ||
+              AuthRejectionCode.passwordBreached,
+        ),
+      )) {
+        setState(() => _rejectedPassword = _password.text);
+      }
+    },
+    builder: (context, state) {
+      final strings = AppStrings.of(context).auth;
+      final isSubmitting = state is SignUpFormSubmitting;
+      final rejected = state is SignUpFormRejected ? state.failure : null;
+      final passwordServerError = switch ((
+        rejected,
+        _rejectedPassword == _password.text,
+      )) {
+        (AuthRejectedFailure(code: AuthRejectionCode.passwordTooWeak), true) =>
+          strings.passwordLength,
+        (AuthRejectedFailure(code: AuthRejectionCode.passwordBreached), true) =>
+          strings.passwordBreached,
+        _ => null,
+      };
+      final isPasswordRejection = switch (rejected) {
+        AuthRejectedFailure(
+          code: AuthRejectionCode.passwordTooWeak ||
+              AuthRejectionCode.passwordBreached,
+        ) =>
+          true,
+        _ => false,
+      };
+      final generalError = rejected != null && !isPasswordRejection
+          ? strings.serverUnreachable
+          : null;
+      return AutofillGroup(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: AppSpacing.lg,
+          children: [
+            AppLabeledDivider(label: strings.signUpDivider),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final fields = [
+                  AppTextField(
+                    label: strings.firstName,
+                    placeholder: strings.firstName,
+                    controller: _firstName,
+                    enabled: !isSubmitting,
+                    autofillHints: const [AutofillHints.givenName],
+                    textInputAction: TextInputAction.next,
+                    errorText: _nameError(_firstName.text),
+                    onChanged: (_) {
+                      if (_hasSubmitted) setState(() {});
+                    },
+                  ),
+                  AppTextField(
+                    label: strings.lastName,
+                    placeholder: strings.lastName,
+                    controller: _lastName,
+                    enabled: !isSubmitting,
+                    autofillHints: const [AutofillHints.familyName],
+                    textInputAction: TextInputAction.next,
+                    errorText: _nameError(_lastName.text),
+                    onChanged: (_) {
+                      if (_hasSubmitted) setState(() {});
+                    },
+                  ),
+                ];
+                return constraints.maxWidth < 320
+                    ? Column(spacing: AppSpacing.lg, children: fields)
+                    : Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        spacing: AppSpacing.lg,
+                        children: fields
+                            .map((field) => Expanded(child: field))
+                            .toList(),
+                      );
+              },
             ),
-          )) {
-            setState(() => _rejectedPassword = _password.text);
-          }
-        },
-        builder: (context, state) {
-          final strings = AppStrings.of(context).auth;
-          final isSubmitting = state is SignUpFormSubmitting;
-          final rejected = state is SignUpFormRejected ? state.failure : null;
-          final passwordServerError = switch ((
-            rejected,
-            _rejectedPassword == _password.text,
-          )) {
-            (AuthRejected(code: AuthRejectionCode.passwordTooWeak), true) =>
-              strings.passwordLength,
-            (AuthRejected(code: AuthRejectionCode.passwordBreached), true) =>
-              strings.passwordBreached,
-            _ => null,
-          };
-          final isPasswordRejection = switch (rejected) {
-            AuthRejected(
-              code: AuthRejectionCode.passwordTooWeak ||
-                  AuthRejectionCode.passwordBreached,
-            ) =>
-              true,
-            _ => false,
-          };
-          final generalError = rejected != null && !isPasswordRejection
-              ? strings.serverUnreachable
-              : null;
-          return AutofillGroup(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: AppSpacing.lg,
-              children: [
-                AppLabeledDivider(label: strings.signUpDivider),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final fields = [
-                      AppTextField(
-                        label: strings.firstName,
-                        placeholder: strings.firstName,
-                        controller: _firstName,
-                        enabled: !isSubmitting,
-                        autofillHints: const [AutofillHints.givenName],
-                        textInputAction: TextInputAction.next,
-                        errorText: _nameError(_firstName.text),
-                        onChanged: (_) {
-                          if (_hasSubmitted) setState(() {});
-                        },
-                      ),
-                      AppTextField(
-                        label: strings.lastName,
-                        placeholder: strings.lastName,
-                        controller: _lastName,
-                        enabled: !isSubmitting,
-                        autofillHints: const [AutofillHints.familyName],
-                        textInputAction: TextInputAction.next,
-                        errorText: _nameError(_lastName.text),
-                        onChanged: (_) {
-                          if (_hasSubmitted) setState(() {});
-                        },
-                      ),
-                    ];
-                    return constraints.maxWidth < 320
-                        ? Column(spacing: AppSpacing.lg, children: fields)
-                        : Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            spacing: AppSpacing.lg,
-                            children: fields
-                                .map((field) => Expanded(child: field))
-                                .toList(),
-                          );
-                  },
-                ),
-                AppTextField(
-                  label: strings.emailAddress,
-                  placeholder: strings.emailAddress,
-                  controller: _email,
-                  enabled: !isSubmitting,
-                  autofillHints: const [AutofillHints.email],
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  autocorrect: false,
-                  errorText: _emailError,
-                  onChanged: (_) {
-                    if (_hasSubmitted) setState(() {});
-                  },
-                ),
-                AppTextField(
-                  label: strings.password,
-                  placeholder: strings.password,
-                  controller: _password,
-                  enabled: !isSubmitting,
-                  helperText: strings.passwordHelper,
-                  isObscured: true,
-                  showObscuredTextTooltip: strings.showPassword,
-                  hideObscuredTextTooltip: strings.hidePassword,
-                  autofillHints: const [AutofillHints.newPassword],
-                  textInputAction: TextInputAction.done,
-                  errorText: passwordServerError ?? _passwordError,
-                  onChanged: (_) {
-                    if (_hasSubmitted) setState(() {});
-                  },
-                  onSubmitted: (_) => _submit(),
-                ),
-                _LegalLine(
-                  strings: strings,
-                  termsUrl: widget.termsUrl,
-                  privacyUrl: widget.privacyUrl,
-                  enabled: !isSubmitting,
-                ),
-                if (generalError != null)
-                  AppAlert(title: generalError, variant: AppAlertVariant.error),
-                AppButton(
-                  label: strings.register,
-                  onPressed: isSubmitting ? null : _submit,
-                  isLoading: isSubmitting,
-                  size: AppButtonSize.xxl,
-                ),
-                AuthSwitchPrompt(
-                  prompt: strings.signUpSwitchPrefix,
-                  actionLabel: strings.signUpSwitchAction,
-                  onPressed: isSubmitting
-                      ? null
-                      : () => widget.onLogIn(_email.text.trim()),
-                ),
-              ],
+            AppTextField(
+              label: strings.emailAddress,
+              placeholder: strings.emailAddress,
+              controller: _email,
+              enabled: !isSubmitting,
+              autofillHints: const [AutofillHints.email],
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              autocorrect: false,
+              errorText: _emailError,
+              onChanged: (_) {
+                if (_hasSubmitted) setState(() {});
+              },
             ),
-          );
-        },
+            AppTextField(
+              label: strings.password,
+              placeholder: strings.password,
+              controller: _password,
+              enabled: !isSubmitting,
+              helperText: strings.passwordHelper,
+              isObscured: true,
+              showObscuredTextTooltip: strings.showPassword,
+              hideObscuredTextTooltip: strings.hidePassword,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.done,
+              errorText: passwordServerError ?? _passwordError,
+              onChanged: (_) {
+                if (_hasSubmitted) setState(() {});
+              },
+              onSubmitted: (_) => _submit(),
+            ),
+            _LegalLine(
+              strings: strings,
+              termsUrl: widget.termsUrl,
+              privacyUrl: widget.privacyUrl,
+              enabled: !isSubmitting,
+            ),
+            if (generalError != null)
+              AppAlert(title: generalError, variant: AppAlertVariant.error),
+            AppButton(
+              label: strings.register,
+              onPressed: isSubmitting ? null : _submit,
+              isLoading: isSubmitting,
+              size: AppButtonSize.xxl,
+            ),
+            AuthSwitchPrompt(
+              prompt: strings.signUpSwitchPrefix,
+              actionLabel: strings.signUpSwitchAction,
+              onPressed: isSubmitting
+                  ? null
+                  : () => widget.onLogIn(_email.text.trim()),
+            ),
+          ],
+        ),
       );
+    },
+  );
 }
 
 /// Legal agreement copy with two browser links.

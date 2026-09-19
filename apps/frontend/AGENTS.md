@@ -80,8 +80,13 @@ Localization rules:
   `HealthStatusCubit` and `HealthStatusState`. State variants follow the root
   naming rule: `HealthStatusNotChecked`, `HealthStatusChecking`,
   `HealthStatusHealthy`, and `HealthStatusCheckFailed`.
+- DTO classes end in `DTO`, and their files end in `_dto.dart`, such as
+  `TokenPairDTO` in `token_pair_dto.dart`.
+- Request and response classes end in `Request` or `Response`, and their files
+  end in `_request.dart` or `_response.dart`.
 - Failures are sealed classes in `domain/failures/` that implement
-  `Exception`.
+  `Exception`. The base and every variant end in `Failure`. A failure file
+  ends in `_failure.dart`; variants may share the base failure's file.
 - Each user-visible string group has its own sealed class in
   `lib/features/localization/i18n/`, such as `HealthStrings` and
   `HomeStrings`, reached through `AppStrings`.

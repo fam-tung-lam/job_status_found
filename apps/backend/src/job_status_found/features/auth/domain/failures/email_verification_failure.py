@@ -5,7 +5,7 @@ class EmailVerificationFailure(Exception):
     """A verification request could not prove its mailbox and password together."""
 
 
-class EmailVerificationCodeInvalid(EmailVerificationFailure):
+class EmailVerificationCodeInvalidFailure(EmailVerificationFailure):
     """The submitted proof is invalid, expired, consumed, or exhausted."""
 
     def __init__(self) -> None:

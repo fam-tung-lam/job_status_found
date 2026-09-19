@@ -5,6 +5,9 @@ Core imports no other feature and nothing from `app/`.
 """
 
 from job_status_found.features.core.app_settings import AppSettings, get_app_settings
+from job_status_found.features.core.application.failures.email_delivery_failure import (
+    EmailDeliveryFailure,
+)
 from job_status_found.features.core.application.ports.unit_of_work import UnitOfWork
 from job_status_found.features.core.di import (
     get_smtp_email_sender_client,
@@ -12,7 +15,6 @@ from job_status_found.features.core.di import (
     get_utc_now,
 )
 from job_status_found.features.core.infrastructure.clients.smtp_email_sender_client import (
-    EmailDeliveryFailure,
     SmtpEmailSenderClient,
     SmtpSecurity,
 )
@@ -36,11 +38,11 @@ from job_status_found.features.core.presentation.http.problem_details_responses 
     problem_details_openapi_content,
     problem_details_response,
 )
-from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details import (
-    InvalidInputProblemDetails,
+from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details_response import (  # noqa: E501
+    InvalidInputProblemDetailsResponse,
 )
-from job_status_found.features.core.presentation.http.schemas.problem_details import (
-    ProblemDetails,
+from job_status_found.features.core.presentation.http.schemas.problem_details_response import (
+    ProblemDetailsResponse,
 )
 
 __all__ = [
@@ -48,11 +50,11 @@ __all__ = [
     "AppSettings",
     "Base",
     "EmailDeliveryFailure",
-    "InvalidInputProblemDetails",
+    "InvalidInputProblemDetailsResponse",
     "IpAddress",
     "JsonObject",
-    "ProblemDetails",
     "ProblemDetailsFastAPI",
+    "ProblemDetailsResponse",
     "SmtpEmailSenderClient",
     "SmtpSecurity",
     "SurrogateKey",

@@ -5,10 +5,10 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.ports.access_token_codec import (
-    AccessTokenCodec,
-    InvalidAccessToken,
+from job_status_found.features.auth.application.failures.invalid_access_token_failure import (
+    InvalidAccessTokenFailure,
 )
+from job_status_found.features.auth.application.ports.access_token_codec import AccessTokenCodec
 from job_status_found.features.auth.application.use_cases.authenticate_access_token_use_case import (  # noqa: E501
     AuthenticateAccessTokenUseCase,
 )
@@ -53,7 +53,7 @@ class TestAuthenticateAccessTokenUseCase:
         """
         # Given: the codec rejects a malformed token.
         codec = mocker.create_autospec(AccessTokenCodec, instance=True)
-        codec.authenticate_access_token.side_effect = InvalidAccessToken
+        codec.authenticate_access_token.side_effect = InvalidAccessTokenFailure
 
         # When: the use case authenticates it.
         # Then: callers receive the generic access-token failure.

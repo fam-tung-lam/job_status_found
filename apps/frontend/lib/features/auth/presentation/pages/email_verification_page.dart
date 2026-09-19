@@ -81,7 +81,7 @@ class _EmailVerificationPageState() extends State<EmailVerificationPage> {
       child: BlocConsumer<EmailVerificationCubit, EmailVerificationState>(
         listener: (_, state) {
           if (state case EmailVerificationRejected(
-            failure: AuthRejected(
+            failure: AuthRejectedFailure(
               code: AuthRejectionCode.verificationCodeInvalid,
             ),
           )) {
@@ -100,7 +100,7 @@ class _EmailVerificationPageState() extends State<EmailVerificationPage> {
               state is EmailVerificationResending;
           final invalid = switch (state) {
             EmailVerificationRejected(
-              failure: AuthRejected(
+              failure: AuthRejectedFailure(
                 code: AuthRejectionCode.verificationCodeInvalid,
               ),
             ) =>

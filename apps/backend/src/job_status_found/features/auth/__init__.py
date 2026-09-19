@@ -7,7 +7,7 @@ from job_status_found.features.auth.domain.entities.authenticated_principal impo
     AuthenticatedPrincipal,
 )
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
-from job_status_found.features.auth.presentation.http.guards.authentication_guards import (
+from job_status_found.features.auth.presentation.http.v1.guards.authentication_guards import (
     get_authenticated_principal,
     require_role,
 )

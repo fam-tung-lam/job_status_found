@@ -4,7 +4,7 @@ import 'package:job_status_found/features/auth/domain/value_objects/identity_pro
 import 'package:job_status_found/features/auth/domain/value_objects/user_role.dart';
 
 void main() {
-  group('CurrentUserDto.fromJson', () {
+  group('CurrentUserDTO.fromJson', () {
     test('decodes the profile and linked sign-in methods', () {
       // Given: the documented current-user response.
       final json = <String, Object?>{
@@ -20,7 +20,7 @@ void main() {
       };
 
       // When: the app decodes and maps it.
-      final user = CurrentUserDto.fromJson(json).toEntity();
+      final user = CurrentUserDTO.fromJson(json).toEntity();
 
       // Then: every session-relevant field survives the boundary.
       expect(user.email.asTyped, 'person@example.com');
@@ -47,7 +47,7 @@ void main() {
       };
 
       // When: the response is decoded.
-      CurrentUserDto decode() => CurrentUserDto.fromJson(json);
+      CurrentUserDTO decode() => CurrentUserDTO.fromJson(json);
 
       // Then: the invalid contract cannot enter session state.
       expect(decode, throwsFormatException);

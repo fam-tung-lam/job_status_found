@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
-from job_status_found.features.auth.application.dtos.session_input import SessionInput
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.session_input_dto import SessionInputDTO
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.access_token_codec import AccessTokenCodec
 from job_status_found.features.auth.application.ports.session_repository import SessionRepository
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
@@ -92,9 +92,9 @@ class IssuePasswordSessionUseCase:
         self,
         owner_id: UUID,
         role: UserRole,
-        session_input: SessionInput,
+        session_input: SessionInputDTO,
         issued_at: datetime,
-    ) -> TokenPair:
+    ) -> TokenPairDTO:
         """Create an initial session and credentials without committing.
 
         The calling use case owns the transaction so it can commit the session
@@ -131,14 +131,14 @@ class IssuePasswordSessionUseCase:
             expires_at=idle_expires_at,
         )
         access_token = self._access_tokens.issue_access_token(
-            AccessTokenClaims(
+            AccessTokenClaimsDTO(
                 owner_id=owner_id,
                 session_id=session_id,
                 role=role,
                 issued_at=issued_at,
             )
         )
-        return TokenPair(
+        return TokenPairDTO(
             access_token=access_token,
             expires_in=int(self._settings.access_token_lifetime.total_seconds()),
             refresh_token=refresh_token,

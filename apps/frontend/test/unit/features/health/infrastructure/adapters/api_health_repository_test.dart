@@ -27,7 +27,7 @@ void main() {
       // Then: the check fails as an unexpected response.
       await expectLater(
         healthCheck,
-        throwsA(const HealthCheckUnexpectedResponse()),
+        throwsA(const HealthCheckUnexpectedResponseFailure()),
       );
     });
   });

@@ -13,7 +13,7 @@
 
 An API client starts an attempt, the person approves at Google, the callback
 redirects to the app's redirect URI with a one-time code, and exchanging that
-code with the PKCE verifier returns a `TokenPair` for a new or returning Google
+code with the PKCE verifier returns a `TokenPairResponse` for a new or returning Google
 user.
 
 ## Context
@@ -108,7 +108,7 @@ user.
   sends a code, and fails with `email_verification_required` (§6.5).
 - An email that already belongs to a user fails with
   `account_exists_link_required` and changes nothing (R-7).
-- The exchange returns a `TokenPair` per `client_kind` only for the matching
+- The exchange returns a `TokenPairResponse` per `client_kind` only for the matching
   PKCE verifier, once, within 60 seconds. Anything else returns
   `exchange_code_invalid` (§6.4, §7).
 - No provider access or refresh token is stored, and `state` and exchange codes

@@ -5,7 +5,9 @@ from typing import Any
 
 from fastapi.responses import JSONResponse
 
-from job_status_found.features.core.presentation.http.schemas.problem_details import ProblemDetails
+from job_status_found.features.core.presentation.http.schemas.problem_details_response import (
+    ProblemDetailsResponse,
+)
 
 PROBLEM_JSON_MEDIA_TYPE = "application/problem+json"
 """Media type of every error response."""
@@ -26,9 +28,9 @@ def problem_details_response(
         headers: Extra response headers, such as `WWW-Authenticate`.
 
     Returns:
-        The response carrying a `ProblemDetails` body.
+        The response carrying a `ProblemDetailsResponse` body.
     """
-    problem = ProblemDetails(
+    problem = ProblemDetailsResponse(
         title=HTTPStatus(status_code).phrase, status=status_code, detail=detail, code=code
     )
     return JSONResponse(
@@ -36,7 +38,9 @@ def problem_details_response(
     )
 
 
-def problem_details_openapi_content(model: type[ProblemDetails] = ProblemDetails) -> dict[str, Any]:
+def problem_details_openapi_content(
+    model: type[ProblemDetailsResponse] = ProblemDetailsResponse,
+) -> dict[str, Any]:
     """Describe a problem body for a route's `responses=` entry.
 
     FastAPI files a response `model` under the route's own media type, which is

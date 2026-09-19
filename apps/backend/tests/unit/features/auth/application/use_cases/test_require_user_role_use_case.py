@@ -7,8 +7,10 @@ from pytest_mock import MockerFixture
 
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
 from job_status_found.features.auth.application.use_cases.require_user_role_use_case import (
-    RequiredUserRoleNotGranted,
     RequireUserRoleUseCase,
+)
+from job_status_found.features.auth.domain.failures.required_user_role_not_granted_failure import (
+    RequiredUserRoleNotGrantedFailure,
 )
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
 
@@ -29,5 +31,5 @@ class TestRequireUserRoleUseCase:
 
         # When: an admin role is required.
         # Then: authorization is rejected from current state.
-        with pytest.raises(RequiredUserRoleNotGranted):
+        with pytest.raises(RequiredUserRoleNotGrantedFailure):
             await RequireUserRoleUseCase(users=users).invoke(uuid4(), UserRole.ADMIN)

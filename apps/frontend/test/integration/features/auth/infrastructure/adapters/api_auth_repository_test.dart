@@ -60,7 +60,7 @@ void main() {
     await expectLater(
       signIn,
       throwsA(
-        isA<AuthRejected>().having(
+        isA<AuthRejectedFailure>().having(
           (failure) => failure.code,
           'code',
           AuthRejectionCode.invalidCredentials,
@@ -90,7 +90,7 @@ void main() {
     );
 
     // Then: storage implementation details do not cross into application code.
-    await expectLater(signIn, throwsA(isA<AuthServerUnreachable>()));
+    await expectLater(signIn, throwsA(isA<AuthServerUnreachableFailure>()));
   });
 
   test('maps credential-observation exceptions to an auth failure', () async {
@@ -105,7 +105,10 @@ void main() {
     final statuses = repository.watchAuthenticationStatus();
 
     // Then: the stream exposes only the auth domain failure.
-    await expectLater(statuses, emitsError(isA<AuthServerUnreachable>()));
+    await expectLater(
+      statuses,
+      emitsError(isA<AuthServerUnreachableFailure>()),
+    );
   });
 
   test('clears partial tokens and maps an invalid profile response', () async {
@@ -133,7 +136,7 @@ void main() {
 
     // Then: the repository removes the unusable session and exposes one
     // domain failure.
-    await expectLater(signIn, throwsA(isA<AuthServerUnreachable>()));
+    await expectLater(signIn, throwsA(isA<AuthServerUnreachableFailure>()));
     verify(httpClient.clearTokens).called(1);
   });
 }

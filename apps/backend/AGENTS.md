@@ -39,7 +39,14 @@
 - Keep the names a library requires or its documentation uses throughout,
   such as FastAPI's `lifespan`, SQLAlchemy's `Base`, Alembic's
   `run_migrations_online`, and Pydantic's `model_config`. Keep the wire
-  fields of `InvalidInputError` too: `loc`, `msg`, and `type`.
+  fields of `InvalidInputErrorResponse` too: `loc`, `msg`, and `type`.
+- Every class in `application/dtos/` ends in `DTO`, and its module ends in
+  `_dto.py`, such as `TokenPairDTO` in `token_pair_dto.py`.
+- Every request and response model ends in `Request` or `Response`, and its
+  module ends in `_request.py` or `_response.py`.
+- Every typed failure and each of its variants ends in `Failure`. Its module
+  ends in `_failure.py`; variants of one operation may share the base
+  failure's module.
 
 ## Code layout
 
@@ -142,7 +149,13 @@
 - `features/<name>/di.py` provides each use case as
   `get_<verb>_<noun>_use_case`, injected with `Depends`, and passes every
   collaborator by keyword.
-- HTTP adapters live in `presentation/http/`:
+- HTTP adapters live in `presentation/http/`. A versioned HTTP contract keeps
+  its complete adapter subtree in `presentation/http/v<major>/`, such as
+  `presentation/http/v1/`. This includes its controllers, feature router,
+  schemas, helpers, exception handlers, guards, and version-specific settings.
+  `app/app.py` mounts the router under the matching URL prefix. An endpoint
+  intentionally shared across API versions, such as the health probe, stays
+  directly in `presentation/http/`:
   - One controller module per endpoint, named for what it does:
     `<operation>_controller.py`, such as `sign_up_controller.py` or
     `health_controller.py`. It holds one `APIRouter` without a prefix or tag,
@@ -153,18 +166,18 @@
     controller's router under the feature's one tag and its prefix, if it has
     one, such as `/auth`. `app/app.py`
     includes that router, never a controller directly.
-  - Request and response bodies live in `presentation/http/schemas/`, one
+  - Request and response bodies live in the HTTP version's `schemas/`, one
     Pydantic model per module: `<subject>_request.py` with `<Subject>Request`,
     such as `SignUpRequest`, and `<subject>_response.py` with
     `<Subject>Response`, such as `HealthStatusResponse`. Use cases never
     receive or return these models.
   - A stateless operation that maps HTTP-specific values lives as one function
-    per file in `presentation/http/helpers/`, named after that function, such
+    per file in the HTTP version's `helpers/`, named after that function, such
     as `build_session_input_from_request.py`.
   - Failure-to-problem handlers live in
-    `presentation/http/exception_handlers/<feature>_exception_handlers.py`.
+    `<version>/exception_handlers/<feature>_exception_handlers.py`.
   - Authentication and authorization dependencies live in
-    `presentation/http/guards/`, grouped by the concern they guard, such as
+    the HTTP version's `guards/`, grouped by the concern they guard, such as
     `authentication_guards.py`.
 - SQLAlchemy mapped tables live in
   `features/<feature>/infrastructure/db/tables/`, one `<name>_table.py` per

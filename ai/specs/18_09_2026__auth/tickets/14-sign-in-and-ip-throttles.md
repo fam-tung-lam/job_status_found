@@ -3,7 +3,7 @@
 - Status: planned
 - Spec trace: §4 (`limits`), §7 (429 `too_many_attempts`, `Retry-After`), §9
   (account throttle, IP throttle), §10 (`RequestThrottle`,
-  `PasswordSignInThrottled`), ERD (`auth_events` indexes)
+  `PasswordSignInThrottledFailure`), ERD (`auth_events` indexes)
 - Blocked by: T-09
 - Blocks: T-17
 
@@ -30,7 +30,7 @@ route group's limit, the API answers 429 `too_many_attempts` with a
 
 - The account throttle in `SignInWithPasswordUseCase`: 5 `sign_in_failed`
   events per `identifier_hash` in 15 minutes block further password checks for
-  that identifier for 15 minutes, raising `PasswordSignInThrottled` (§9, §10).
+  that identifier for 15 minutes, raising `PasswordSignInThrottledFailure` (§9, §10).
 - `RequestThrottle` port with a `limits` moving-window adapter per route group:
   sign-in 10/min, sign-up 5/min, code confirm 10/15 min, reset request 3/5 min
   (§9).

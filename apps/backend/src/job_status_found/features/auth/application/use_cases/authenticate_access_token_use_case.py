@@ -1,9 +1,9 @@
 """Authenticate a bearer access token without reading persistent state."""
 
-from job_status_found.features.auth.application.ports.access_token_codec import (
-    AccessTokenCodec,
-    InvalidAccessToken,
+from job_status_found.features.auth.application.failures.invalid_access_token_failure import (
+    InvalidAccessTokenFailure,
 )
+from job_status_found.features.auth.application.ports.access_token_codec import AccessTokenCodec
 from job_status_found.features.auth.domain.entities.authenticated_principal import (
     AuthenticatedPrincipal,
 )
@@ -37,5 +37,5 @@ class AuthenticateAccessTokenUseCase:
         """
         try:
             return self._access_tokens.authenticate_access_token(access_token)
-        except InvalidAccessToken as error:
+        except InvalidAccessTokenFailure as error:
             raise AccessTokenAuthenticationFailure from error

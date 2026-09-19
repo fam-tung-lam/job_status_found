@@ -9,7 +9,9 @@ import pytest
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
-from job_status_found.features.auth.application.dtos.user_registration import UserRegistration
+from job_status_found.features.auth.application.dtos.user_registration_dto import (
+    UserRegistrationDTO,
+)
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
 from job_status_found.features.auth.infrastructure.adapters.sql_user_repository import (
@@ -69,7 +71,7 @@ class TestSqlUserRepository:
         """
         # Given: one transaction has created an account for the email but not
         # yet committed.
-        registration = UserRegistration(
+        registration = UserRegistrationDTO(
             email=EmailAddress(unique_address),
             first_name="Jane",
             last_name="Doe",

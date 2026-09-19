@@ -29,7 +29,7 @@ re-authenticates with `POST /v1/auth/reauthentication`.
 ## In scope
 
 - `require_recent_authentication` in
-  `features/auth/presentation/http/authentication_guards.py`, published
+  `features/auth/presentation/http/v1/guards/authentication_guards.py`, published
   through the auth facade, with the
   10-minute window as a setting (§5, §8 rule 5, §10).
 - `ReauthenticateWithPasswordUseCase` and `POST /v1/auth/reauthentication`

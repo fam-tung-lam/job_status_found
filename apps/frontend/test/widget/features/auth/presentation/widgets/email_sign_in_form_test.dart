@@ -74,7 +74,9 @@ void main() {
         password: 'password',
         rememberMe: false,
       ),
-    ).thenThrow(const AuthRejected(AuthRejectionCode.invalidCredentials));
+    ).thenThrow(
+      const AuthRejectedFailure(AuthRejectionCode.invalidCredentials),
+    );
     final cubit = SignInFormCubit(
       SignInWithPasswordUseCase(repository),
       (_) {},
@@ -123,7 +125,9 @@ void main() {
         password: 'password',
         rememberMe: true,
       ),
-    ).thenThrow(const AuthRejected(AuthRejectionCode.invalidCredentials));
+    ).thenThrow(
+      const AuthRejectedFailure(AuthRejectionCode.invalidCredentials),
+    );
     final cubit = SignInFormCubit(
       SignInWithPasswordUseCase(repository),
       (_) {},
@@ -239,17 +243,21 @@ void main() {
       <({String name, AuthFailure failure, String expectedMessage})>[
         (
           name: 'invalid credentials',
-          failure: const AuthRejected(AuthRejectionCode.invalidCredentials),
+          failure: const AuthRejectedFailure(
+            AuthRejectionCode.invalidCredentials,
+          ),
           expectedMessage: const EnAuthStrings().invalidCredentials,
         ),
         (
           name: 'unavailable account',
-          failure: const AuthRejected(AuthRejectionCode.accountUnavailable),
+          failure: const AuthRejectedFailure(
+            AuthRejectionCode.accountUnavailable,
+          ),
           expectedMessage: const EnAuthStrings().accountUnavailable,
         ),
         (
           name: 'throttling',
-          failure: const AuthRejected(
+          failure: const AuthRejectedFailure(
             AuthRejectionCode.tooManyAttempts,
             retryAfterSeconds: 125,
           ),
@@ -257,7 +265,7 @@ void main() {
         ),
         (
           name: 'server connectivity',
-          failure: const AuthServerUnreachable(),
+          failure: const AuthServerUnreachableFailure(),
           expectedMessage: const EnAuthStrings().serverUnreachable,
         ),
       ];

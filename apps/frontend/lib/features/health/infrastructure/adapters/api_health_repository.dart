@@ -6,9 +6,9 @@ import 'package:job_status_found/packages/job_status_found_http_client/job_statu
 /// [HealthRepository] answered by the backend's `GET /health` endpoint.
 ///
 /// Makes one request per check with no retry; the caller decides when to check
-/// again. Throws [HealthCheckBackendUnreachable] when the request cannot
-/// complete, and [HealthCheckUnexpectedResponse] for an error status or an
-/// unknown body.
+/// again. Throws [HealthCheckBackendUnreachableFailure] when the request cannot
+/// complete, and [HealthCheckUnexpectedResponseFailure] for an error status
+/// or an unknown body.
 final class const ApiHealthRepository(
   /// Fetches the raw health response from the backend.
   final HealthApiClient _healthApiClient,
@@ -24,21 +24,21 @@ final class const ApiHealthRepository(
       Error.throwWithStackTrace(_toHealthCheckFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
       Error.throwWithStackTrace(
-        const HealthCheckUnexpectedResponse(),
+        const HealthCheckUnexpectedResponseFailure(),
         stackTrace,
       );
     }
   }
 
   /// Classifies a failed request: a response the app cannot use becomes
-  /// [HealthCheckUnexpectedResponse], and any other failure
-  /// [HealthCheckBackendUnreachable].
+  /// [HealthCheckUnexpectedResponseFailure], and any other failure
+  /// [HealthCheckBackendUnreachableFailure].
   HealthCheckFailure _toHealthCheckFailure(
     JobStatusFoundHttpClientException exception,
   ) => switch (exception) {
     JobStatusFoundHttpClientBadResponse() ||
     JobStatusFoundHttpClientTransformTimeout() =>
-      const HealthCheckUnexpectedResponse(),
+      const HealthCheckUnexpectedResponseFailure(),
     JobStatusFoundHttpClientConnectionTimeout() ||
     JobStatusFoundHttpClientSendTimeout() ||
     JobStatusFoundHttpClientReceiveTimeout() ||
@@ -46,6 +46,6 @@ final class const ApiHealthRepository(
     JobStatusFoundHttpClientCancelled() ||
     JobStatusFoundHttpClientConnectionFailed() ||
     JobStatusFoundHttpClientUnknownFailure() =>
-      const HealthCheckBackendUnreachable(),
+      const HealthCheckBackendUnreachableFailure(),
   };
 }

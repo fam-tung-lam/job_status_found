@@ -7,7 +7,7 @@ sealed class const AuthFailure() implements Exception {
 }
 
 /// The backend rejected the operation for a stable [code].
-final class const AuthRejected(
+final class const AuthRejectedFailure(
   final AuthRejectionCode code, {
   final int? retryAfterSeconds,
 }) extends AuthFailure {
@@ -16,7 +16,7 @@ final class const AuthRejected(
 }
 
 /// The backend could not be reached or returned an unusable response.
-final class const AuthServerUnreachable() extends AuthFailure {
+final class const AuthServerUnreachableFailure() extends AuthFailure {
   /// Creates the connectivity failure.
   this;
 }

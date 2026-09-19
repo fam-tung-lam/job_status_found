@@ -30,7 +30,7 @@ void main() {
           rememberMe: true,
         ),
       ).thenThrow(
-        const AuthRejected(AuthRejectionCode.emailVerificationRequired),
+        const AuthRejectedFailure(AuthRejectionCode.emailVerificationRequired),
       );
     },
     build: () => SignInFormCubit(SignInWithPasswordUseCase(repository), (_) {}),
@@ -55,14 +55,18 @@ void main() {
           password: 'wrong',
           rememberMe: false,
         ),
-      ).thenThrow(const AuthRejected(AuthRejectionCode.invalidCredentials));
+      ).thenThrow(
+        const AuthRejectedFailure(AuthRejectionCode.invalidCredentials),
+      );
     },
     build: () => SignInFormCubit(SignInWithPasswordUseCase(repository), (_) {}),
     act: (cubit) =>
         cubit.submit(email: email, password: 'wrong', rememberMe: false),
     expect: () => const [
       SignInFormSubmitting(),
-      SignInFormRejected(AuthRejected(AuthRejectionCode.invalidCredentials)),
+      SignInFormRejected(
+        AuthRejectedFailure(AuthRejectionCode.invalidCredentials),
+      ),
     ],
   );
 }

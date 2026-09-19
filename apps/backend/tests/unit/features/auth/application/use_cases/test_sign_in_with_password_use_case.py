@@ -6,11 +6,11 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.password_sign_in_input import (
-    PasswordSignInInput,
+from job_status_found.features.auth.application.dtos.password_sign_in_input_dto import (
+    PasswordSignInInputDTO,
 )
-from job_status_found.features.auth.application.dtos.session_input import SessionInput
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.session_input_dto import SessionInputDTO
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
@@ -31,7 +31,7 @@ from job_status_found.features.auth.application.use_cases.sign_in_with_password_
 )
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.domain.failures.password_sign_in_failure import (
-    PasswordSignInInvalidCredentials,
+    PasswordSignInInvalidCredentialsFailure,
 )
 from job_status_found.features.auth.domain.value_objects.client_kind import ClientKind
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
@@ -85,12 +85,12 @@ class TestSignInWithPasswordUseCase:
             ),
         )
 
-    def _sign_in(self) -> PasswordSignInInput:
+    def _sign_in(self) -> PasswordSignInInputDTO:
         """Build the shared password and persistent iOS session input."""
-        return PasswordSignInInput(
+        return PasswordSignInInputDTO(
             email="Jane@example.com",
             password="submitted password",
-            session=SessionInput(
+            session=SessionInputDTO(
                 client_kind=ClientKind.IOS,
                 remember_me=True,
                 ip_address=None,
@@ -110,10 +110,10 @@ class TestSignInWithPasswordUseCase:
         # Given: an email with no account and mocks for every collaborator.
         self.users.lock_user_by_normalized_email.return_value = None
         self.verify_password.return_value = (False, None)
-        sign_in = PasswordSignInInput(
+        sign_in = PasswordSignInInputDTO(
             email="Unknown@example.com",
             password="submitted password",
-            session=SessionInput(
+            session=SessionInputDTO(
                 client_kind=ClientKind.IOS,
                 remember_me=True,
                 ip_address=None,
@@ -124,7 +124,7 @@ class TestSignInWithPasswordUseCase:
 
         # When: password sign-in is attempted.
         # Then: one dummy verification and event commit before generic rejection.
-        with pytest.raises(PasswordSignInInvalidCredentials):
+        with pytest.raises(PasswordSignInInvalidCredentialsFailure):
             await self.use_case.invoke(sign_in)
         self.verify_password.assert_awaited_once_with("submitted password", "dummy-hash")
         self.hash_identifier.assert_called_once_with("unknown@example.com")
@@ -157,7 +157,7 @@ class TestSignInWithPasswordUseCase:
 
         # When: password sign-in is attempted.
         # Then: one dummy verification runs and invalid_credentials is returned after commit.
-        with pytest.raises(PasswordSignInInvalidCredentials):
+        with pytest.raises(PasswordSignInInvalidCredentialsFailure):
             await self.use_case.invoke(self._sign_in())
         self.verify_password.assert_awaited_once_with("submitted password", "dummy-hash")
         self.events.create_auth_event.assert_awaited_once()
@@ -179,7 +179,7 @@ class TestSignInWithPasswordUseCase:
             email_verified_at=NOW,
             role=UserRole.USER,
         )
-        token_pair = TokenPair(
+        token_pair = TokenPairDTO(
             access_token="access",
             expires_in=900,
             refresh_token="refresh",

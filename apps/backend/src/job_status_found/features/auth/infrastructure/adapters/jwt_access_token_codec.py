@@ -6,11 +6,11 @@ from uuid import UUID, uuid4
 
 import jwt
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
-from job_status_found.features.auth.application.ports.access_token_codec import (
-    InvalidAccessToken,
+from job_status_found.features.auth.application.failures.invalid_access_token_failure import (
+    InvalidAccessTokenFailure,
 )
 from job_status_found.features.auth.domain.entities.authenticated_principal import (
     AuthenticatedPrincipal,
@@ -51,7 +51,7 @@ class JwtAccessTokenCodec:
         self._key_ring = key_ring
         self._lifetime = lifetime
 
-    def issue_access_token(self, claims: AccessTokenClaims) -> str:
+    def issue_access_token(self, claims: AccessTokenClaimsDTO) -> str:
         """Issue a signed access token for authenticated claims.
 
         Args:
@@ -88,7 +88,7 @@ class JwtAccessTokenCodec:
             The principal carried by the verified token.
 
         Raises:
-            InvalidAccessToken: The header, signature, claims, or values are invalid.
+            InvalidAccessTokenFailure: The header, signature, claims, or values are invalid.
         """
         try:
             header = jwt.get_unverified_header(access_token)
@@ -99,7 +99,7 @@ class JwtAccessTokenCodec:
                 or not isinstance(key_id, str)
                 or key_id not in self._key_ring
             ):
-                raise InvalidAccessToken
+                raise InvalidAccessTokenFailure
 
             payload: dict[str, Any] = jwt.decode(
                 access_token,
@@ -122,7 +122,7 @@ class JwtAccessTokenCodec:
                 or isinstance(issued_at, bool)
                 or not isinstance(token_id, str)
             ):
-                raise InvalidAccessToken
+                raise InvalidAccessTokenFailure
             UUID(token_id)
             return AuthenticatedPrincipal(
                 user_id=UUID(subject),
@@ -130,4 +130,4 @@ class JwtAccessTokenCodec:
                 role=UserRole(role),
             )
         except (jwt.PyJWTError, KeyError, TypeError, ValueError) as error:
-            raise InvalidAccessToken from error
+            raise InvalidAccessTokenFailure from error

@@ -6,11 +6,11 @@ from uuid import uuid4
 import jwt
 import pytest
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
-from job_status_found.features.auth.application.ports.access_token_codec import (
-    InvalidAccessToken,
+from job_status_found.features.auth.application.failures.invalid_access_token_failure import (
+    InvalidAccessTokenFailure,
 )
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
 from job_status_found.features.auth.infrastructure.adapters.jwt_access_token_codec import (
@@ -68,7 +68,7 @@ class TestJwtAccessTokenCodec:
 
         # When: the codec issues and authenticates a token.
         token = codec.issue_access_token(
-            AccessTokenClaims(
+            AccessTokenClaimsDTO(
                 owner_id=owner_id,
                 session_id=session_id,
                 role=UserRole.USER,
@@ -100,7 +100,7 @@ class TestJwtAccessTokenCodec:
         # Given: a token signed by key A before signing moves to key B.
         owner_id = uuid4()
         token = _codec("a").issue_access_token(
-            AccessTokenClaims(
+            AccessTokenClaimsDTO(
                 owner_id=owner_id,
                 session_id=uuid4(),
                 role=UserRole.USER,
@@ -143,7 +143,7 @@ class TestJwtAccessTokenCodec:
 
         # When: the codec authenticates it.
         # Then: the token is rejected without a partial principal.
-        with pytest.raises(InvalidAccessToken):
+        with pytest.raises(InvalidAccessTokenFailure):
             _codec().authenticate_access_token(token)
 
     def test_an_unsigned_alg_none_token_is_rejected_before_claims_are_trusted(self) -> None:
@@ -162,7 +162,7 @@ class TestJwtAccessTokenCodec:
 
         # When: the codec authenticates it.
         # Then: the non-HS256 algorithm is rejected.
-        with pytest.raises(InvalidAccessToken):
+        with pytest.raises(InvalidAccessTokenFailure):
             _codec().authenticate_access_token(token)
 
     @pytest.mark.parametrize(
@@ -187,5 +187,5 @@ class TestJwtAccessTokenCodec:
 
         # When: the codec authenticates it.
         # Then: the incomplete token is rejected.
-        with pytest.raises(InvalidAccessToken):
+        with pytest.raises(InvalidAccessTokenFailure):
             _codec().authenticate_access_token(token)

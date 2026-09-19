@@ -2,7 +2,7 @@
 
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.current_user import CurrentUser
+from job_status_found.features.auth.application.dtos.current_user_dto import CurrentUserDTO
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
 from job_status_found.features.auth.domain.failures.access_token_authentication_failure import (
     AccessTokenAuthenticationFailure,
@@ -20,7 +20,7 @@ class GetCurrentUserUseCase:
         """
         self._users = users
 
-    async def invoke(self, owner_id: UUID) -> CurrentUser:
+    async def invoke(self, owner_id: UUID) -> CurrentUserDTO:
         """Read the current user.
 
         Args:

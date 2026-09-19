@@ -5,19 +5,15 @@ from typing import Literal
 
 import aiosmtplib
 
+from job_status_found.features.core.application.failures.email_delivery_failure import (
+    EmailDeliveryFailure,
+)
+
 type SmtpSecurity = Literal["none", "starttls", "tls"]
 """How the connection is protected: in the clear, upgraded with STARTTLS, or implicit TLS."""
 
 _SMTP_TIMEOUT_SECONDS = 10
 """Seconds one SMTP operation may take before delivery fails, so a slow server never hangs."""
-
-
-class EmailDeliveryFailure(Exception):
-    """The SMTP server could not be reached, or it refused the email.
-
-    The message names the SMTP error but never the recipient, so a caller may
-    log it.
-    """
 
 
 class SmtpEmailSenderClient:

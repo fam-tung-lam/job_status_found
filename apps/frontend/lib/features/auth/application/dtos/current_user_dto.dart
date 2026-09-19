@@ -4,7 +4,7 @@ import 'package:job_status_found/features/auth/domain/value_objects/identity_pro
 import 'package:job_status_found/features/auth/domain/value_objects/user_role.dart';
 
 /// Current-user response from `GET /v1/auth/me`.
-final class const CurrentUserDto({
+final class const CurrentUserDTO({
   /// Account identifier.
   required final String id,
 
@@ -62,7 +62,7 @@ final class const CurrentUserDto({
           parsedProviders.any((provider) => provider == null)) {
         throw const FormatException('Invalid current-user response.');
       }
-      return CurrentUserDto(
+      return CurrentUserDTO(
         id: id,
         email: parsedEmail,
         firstName: firstName,

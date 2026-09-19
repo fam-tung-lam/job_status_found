@@ -4,8 +4,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.email_challenge_repository import (
@@ -85,7 +85,7 @@ class ResendEmailVerificationUseCase:
             if can_send:
                 verification_code = self._generate_verification_code()
                 await self._email_challenges.replace_open_email_challenge(
-                    NewEmailChallenge(
+                    NewEmailChallengeDTO(
                         owner_id=user.id,
                         purpose=EmailChallengePurpose.VERIFY_EMAIL,
                         secret_hash=self._hash_verification_code(verification_code),

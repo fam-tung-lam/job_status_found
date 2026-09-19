@@ -9,11 +9,11 @@ from fastapi.responses import JSONResponse
 from job_status_found.features.core.presentation.http.problem_details_responses import (
     PROBLEM_JSON_MEDIA_TYPE,
 )
-from job_status_found.features.core.presentation.http.schemas.invalid_input_error import (
-    InvalidInputError,
+from job_status_found.features.core.presentation.http.schemas.invalid_input_error_response import (
+    InvalidInputErrorResponse,
 )
-from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details import (
-    InvalidInputProblemDetails,
+from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details_response import (  # noqa: E501
+    InvalidInputProblemDetailsResponse,
 )
 
 INVALID_INPUT_CODE = "invalid_input"
@@ -31,7 +31,7 @@ async def handle_request_validation_error(_request: Request, error: Exception) -
         error: The `RequestValidationError` FastAPI raised.
 
     Returns:
-        A 422 `InvalidInputProblemDetails` response.
+        A 422 `InvalidInputProblemDetailsResponse` response.
 
     Raises:
         TypeError: The handler was registered for another exception type.
@@ -41,13 +41,13 @@ async def handle_request_validation_error(_request: Request, error: Exception) -
         raise TypeError(error_message)
 
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
-    problem = InvalidInputProblemDetails(
+    problem = InvalidInputProblemDetailsResponse(
         title=HTTPStatus(status_code).phrase,
         status=status_code,
         detail="The request has invalid or missing fields.",
         code=INVALID_INPUT_CODE,
         errors=[
-            InvalidInputError(
+            InvalidInputErrorResponse(
                 loc=list(validation_error["loc"]),
                 msg=validation_error["msg"],
                 type=validation_error["type"],

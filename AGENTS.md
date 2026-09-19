@@ -200,8 +200,14 @@ Expand an alias only when the entire user message is that alias:
 - A use case class is `<Verb><Noun>UseCase`, such as `CheckHealthUseCase`, in
   `<verb>_<noun>_use_case.<ext>`. Its one public method is `invoke`, never
   `execute`, `call`, or `run`.
-- A failure type is `<Operation>Failure`, such as `HealthCheckFailure`. Each
-  variant names the cause, such as `HealthCheckBackendUnreachable`.
+- A data transfer object ends in `DTO`, such as `TokenPairDTO`, and its file
+  ends in `_dto`, such as `token_pair_dto.py` or `token_pair_dto.dart`.
+- An HTTP request or response model ends in `Request` or `Response`, and its
+  file ends in `_request` or `_response`.
+- A failure type ends in `Failure`, such as `HealthCheckFailure`. Every
+  subclass keeps that suffix after its cause, such as
+  `HealthCheckBackendUnreachableFailure`. A file containing one failure ends
+  in `_failure`; a hierarchy may share the base failure's `_failure` file.
 - A state names the subject and what is known about it, such as
   `HealthStatusHealthy`. Do not use generic names such as `Initial`,
   `Loading`, or `Loaded`.

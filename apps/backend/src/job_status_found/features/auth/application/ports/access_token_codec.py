@@ -2,22 +2,18 @@
 
 from typing import Protocol
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
 from job_status_found.features.auth.domain.entities.authenticated_principal import (
     AuthenticatedPrincipal,
 )
 
 
-class InvalidAccessToken(Exception):
-    """The submitted value is not an access token this API accepts."""
-
-
 class AccessTokenCodec(Protocol):
     """Issues and verifies the API's short-lived access tokens."""
 
-    def issue_access_token(self, claims: AccessTokenClaims) -> str:
+    def issue_access_token(self, claims: AccessTokenClaimsDTO) -> str:
         """Issue a signed access token for authenticated claims.
 
         Args:
@@ -38,6 +34,6 @@ class AccessTokenCodec(Protocol):
             The principal carried by the verified token.
 
         Raises:
-            InvalidAccessToken: The token fails any required check.
+            InvalidAccessTokenFailure: The token fails any required check.
         """
         ...

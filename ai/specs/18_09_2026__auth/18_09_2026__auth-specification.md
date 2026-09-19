@@ -545,21 +545,21 @@ third-party login such as Google; section 15 tracks that risk.
 ## 7. API contract
 
 Base path `/v1/auth`. JSON bodies use `snake_case`. "Bearer" means a valid
-access token; "Recent" adds the recent-authentication rule. `TokenPair` is
+access token; "Recent" adds the recent-authentication rule. `TokenPairResponse` is
 `access_token`, `expires_in`, `token_type`, and `refresh_token` (absent for
 `web`).
 
 | Method and path                        | Auth                    | Success                                    | Promised failures                                                           |
 |----------------------------------------|-------------------------|--------------------------------------------|-----------------------------------------------------------------------------|
 | `POST /sign-up`                        | -                       | 202                                        | `password_too_weak`, `password_breached`                                    |
-| `POST /email-verification/confirm`     | -                       | 200 `TokenPair`                            | `verification_code_invalid`                                                 |
+| `POST /email-verification/confirm`     | -                       | 200 `TokenPairResponse`                            | `verification_code_invalid`                                                 |
 | `POST /email-verification/resend`      | -                       | 202                                        | -                                                                           |
-| `POST /sign-in`                        | -                       | 200 `TokenPair`                            | `invalid_credentials`, `email_verification_required`, `account_unavailable` |
-| `POST /sign-in/{provider}/id-token`    | -                       | 200 `TokenPair`                            | `provider_token_invalid`, plus the section 6.5 failures                     |
+| `POST /sign-in`                        | -                       | 200 `TokenPairResponse`                            | `invalid_credentials`, `email_verification_required`, `account_unavailable` |
+| `POST /sign-in/{provider}/id-token`    | -                       | 200 `TokenPairResponse`                            | `provider_token_invalid`, plus the section 6.5 failures                     |
 | `POST /oauth/{provider}/attempts`      | - or Bearer             | 201 `authorization_url`                    | `redirect_uri_not_allowed`, `provider_not_configured`                       |
 | `GET, POST /oauth/{provider}/callback` | state                   | 303 to the app                             | Redirects with `error=<code>`                                               |
-| `POST /oauth/exchange`                 | - or Bearer             | 200 `TokenPair`                            | `exchange_code_invalid`                                                     |
-| `POST /token/refresh`                  | refresh token           | 200 `TokenPair`                            | `refresh_token_invalid`, `session_ended`                                    |
+| `POST /oauth/exchange`                 | - or Bearer             | 200 `TokenPairResponse`                            | `exchange_code_invalid`                                                     |
+| `POST /token/refresh`                  | refresh token           | 200 `TokenPairResponse`                            | `refresh_token_invalid`, `session_ended`                                    |
 | `POST /sign-out`                       | refresh token or Bearer | 204                                        | -                                                                           |
 | `POST /password-reset/request`         | -                       | 202                                        | -                                                                           |
 | `POST /password-reset/confirm`         | -                       | 204                                        | `reset_token_invalid`, `password_too_weak`, `password_breached`             |
@@ -658,7 +658,7 @@ features/auth/
 ├── di.py                  # get_<verb>_<noun>_use_case providers
 ├── auth_settings.py       # AuthSettings (JSF_AUTH_*) and get_auth_settings()
 ├── application/
-│   ├── dtos/              # sign_up_input.py, token_pair.py, verified_provider_identity.py, ...
+│   ├── dtos/              # sign_up_input_dto.py, token_pair_dto.py, verified_provider_identity_dto.py, ...
 │   ├── ports/             # one Protocol per file, listed below
 │   └── use_cases/         # one operation per file, listed below
 ├── domain/
@@ -722,10 +722,10 @@ request hands its email to the request's background tasks, so it leaves after
 the response and a process stop can lose it.
 
 **Failures** (`<Operation>Failure` with one variant per cause), for example
-`PasswordSignInFailure` with `PasswordSignInInvalidCredentials`,
-`PasswordSignInEmailNotVerified`, `PasswordSignInAccountUnavailable`, and
-`PasswordSignInThrottled`; `SessionRefreshFailure` with
-`SessionRefreshTokenInvalid` and `SessionRefreshSessionEnded`.
+`PasswordSignInFailure` with `PasswordSignInInvalidCredentialsFailure`,
+`PasswordSignInEmailNotVerifiedFailure`, `PasswordSignInAccountUnavailableFailure`, and
+`PasswordSignInThrottledFailure`; `SessionRefreshFailure` with
+`SessionRefreshTokenInvalidFailure` and `SessionRefreshSessionEndedFailure`.
 
 **One verifier for every provider.** `OidcIdTokenVerifier` is configured per
 provider with issuer values, JWKS URL, audience allow-list, and whether a nonce

@@ -9,7 +9,7 @@ class SignUpFailure(Exception):
     """Base of every reason a sign-up is refused."""
 
 
-class SignUpPasswordTooWeak(SignUpFailure):
+class SignUpPasswordTooWeakFailure(SignUpFailure):
     """The password is shorter or longer than the password policy allows."""
 
     def __init__(self, *, min_length: int, max_length: int) -> None:

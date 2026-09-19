@@ -5,7 +5,7 @@ class PasswordSignInFailure(Exception):
     """A password sign-in did not open a session."""
 
 
-class PasswordSignInInvalidCredentials(PasswordSignInFailure):
+class PasswordSignInInvalidCredentialsFailure(PasswordSignInFailure):
     """The email and password do not identify a password account."""
 
     def __init__(self) -> None:
@@ -13,7 +13,7 @@ class PasswordSignInInvalidCredentials(PasswordSignInFailure):
         super().__init__("The email or password is incorrect.")
 
 
-class PasswordSignInEmailNotVerified(PasswordSignInFailure):
+class PasswordSignInEmailNotVerifiedFailure(PasswordSignInFailure):
     """The password is right but the mailbox is not verified."""
 
     def __init__(self) -> None:
@@ -21,7 +21,7 @@ class PasswordSignInEmailNotVerified(PasswordSignInFailure):
         super().__init__("Verify the email address before signing in.")
 
 
-class PasswordSignInAccountUnavailable(PasswordSignInFailure):
+class PasswordSignInAccountUnavailableFailure(PasswordSignInFailure):
     """The password is right but the account cannot sign in."""
 
     def __init__(self) -> None:

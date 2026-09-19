@@ -22,11 +22,11 @@ from job_status_found.features.auth.domain.failures.session_refresh_failure impo
     SessionRefreshFailure,
 )
 from job_status_found.features.auth.domain.failures.sign_up_failure import SignUpFailure
-from job_status_found.features.auth.presentation.http.auth_router import (
+from job_status_found.features.auth.presentation.http.v1.auth_router import (
     public_router as public_auth_router,
 )
-from job_status_found.features.auth.presentation.http.auth_router import router as auth_router
-from job_status_found.features.auth.presentation.http.exception_handlers.auth_exception_handlers import (  # noqa: E501
+from job_status_found.features.auth.presentation.http.v1.auth_router import router as auth_router
+from job_status_found.features.auth.presentation.http.v1.exception_handlers.auth_exception_handlers import (  # noqa: E501
     handle_access_token_authentication_failure,
     handle_email_verification_failure,
     handle_password_sign_in_failure,

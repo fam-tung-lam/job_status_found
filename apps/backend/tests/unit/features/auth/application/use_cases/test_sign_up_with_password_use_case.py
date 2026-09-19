@@ -6,10 +6,10 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
-from job_status_found.features.auth.application.dtos.sign_up_input import SignUpInput
+from job_status_found.features.auth.application.dtos.sign_up_input_dto import SignUpInputDTO
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
@@ -26,7 +26,9 @@ from job_status_found.features.auth.application.use_cases.sign_up_with_password_
     SignUpWithPasswordUseCase,
 )
 from job_status_found.features.auth.domain.entities.user import User
-from job_status_found.features.auth.domain.failures.sign_up_failure import SignUpPasswordTooWeak
+from job_status_found.features.auth.domain.failures.sign_up_failure import (
+    SignUpPasswordTooWeakFailure,
+)
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
     EmailChallengePurpose,
 )
@@ -52,9 +54,9 @@ VERIFIED_USER = User(id=uuid4(), email="Jane.Doe@Example.com", email_verified_at
 """An account whose owner confirmed the email."""
 
 
-def _build_sign_up_input(password: str = "second password") -> SignUpInput:
+def _build_sign_up_input(password: str = "second password") -> SignUpInputDTO:
     """Build a sign-up for the shared email, with a chosen password."""
-    return SignUpInput(
+    return SignUpInputDTO(
         first_name="Janet", last_name="Doe", email="Jane.Doe@Example.com", password=password
     )
 
@@ -161,7 +163,7 @@ class TestSignUpWithPasswordUseCase:
             UNVERIFIED_USER.id, "hashed:second password", NOW
         )
         self.email_challenges.replace_open_email_challenge.assert_awaited_once_with(
-            NewEmailChallenge(
+            NewEmailChallengeDTO(
                 owner_id=UNVERIFIED_USER.id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
                 secret_hash=b"keyed:012345",
@@ -268,7 +270,7 @@ class TestSignUpWithPasswordUseCase:
 
         # When: a person signs up with it.
         # Then: the sign-up is refused before any hash, write, or email.
-        with pytest.raises(SignUpPasswordTooWeak):
+        with pytest.raises(SignUpPasswordTooWeakFailure):
             await self.use_case.invoke(_build_sign_up_input(password=too_short))
         self.hash_password.assert_not_awaited()
         self.users.create_unverified_user_unless_email_taken.assert_not_awaited()

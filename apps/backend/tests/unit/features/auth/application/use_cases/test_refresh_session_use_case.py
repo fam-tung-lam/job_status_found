@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
 )
@@ -24,8 +24,8 @@ from job_status_found.features.auth.domain.entities.session_with_refresh_token i
     SessionWithRefreshToken,
 )
 from job_status_found.features.auth.domain.failures.session_refresh_failure import (
-    SessionRefreshOriginNotAllowed,
-    SessionRefreshSessionEnded,
+    SessionRefreshOriginNotAllowedFailure,
+    SessionRefreshSessionEndedFailure,
 )
 from job_status_found.features.auth.domain.value_objects.client_kind import ClientKind
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
@@ -49,7 +49,7 @@ class TestRefreshSessionUseCase:
         self.utc_now = mocker.stub(name="utc_now")
         self.hash_refresh_token.return_value = b"token-hash"
         self.utc_now.return_value = NOW
-        self.token_pair = TokenPair(
+        self.token_pair = TokenPairDTO(
             access_token="access",
             expires_in=900,
             refresh_token="child",
@@ -152,7 +152,7 @@ class TestRefreshSessionUseCase:
 
         # When: the parent is replayed.
         # Then: the family and audit event commit before session_ended.
-        with pytest.raises(SessionRefreshSessionEnded):
+        with pytest.raises(SessionRefreshSessionEndedFailure):
             await self.use_case.invoke("parent", is_origin_allowed=False)
         self.sessions.revoke_session_and_refresh_tokens.assert_awaited_once_with(
             self.state.session_id, revoked_at=NOW, reason="refresh_token_reused"
@@ -175,7 +175,7 @@ class TestRefreshSessionUseCase:
 
         # When: it is submitted without an allowed Origin.
         # Then: the request is rejected without spending the token.
-        with pytest.raises(SessionRefreshOriginNotAllowed):
+        with pytest.raises(SessionRefreshOriginNotAllowedFailure):
             await self.use_case.invoke("parent", is_origin_allowed=False)
         self.sessions.mark_refresh_token_used.assert_not_awaited()
         self.unit_of_work.commit.assert_awaited_once()
@@ -217,7 +217,7 @@ class TestRefreshSessionUseCase:
 
         # When: its refresh token is submitted.
         # Then: session_ended follows the state-specific durable effect.
-        with pytest.raises(SessionRefreshSessionEnded):
+        with pytest.raises(SessionRefreshSessionEndedFailure):
             await self.use_case.invoke("token", is_origin_allowed=True)
         if expected_revocation_reason is None:
             self.sessions.revoke_session_and_refresh_tokens.assert_not_awaited()

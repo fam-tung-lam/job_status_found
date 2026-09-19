@@ -1,7 +1,7 @@
 import 'package:job_status_found/packages/job_status_found_http_client/job_status_found_http_client.dart';
 
 /// Token pair returned by a session-creating endpoint.
-final class const TokenPairDto({
+final class const TokenPairDTO({
   /// Short-lived bearer token.
   required final String accessToken,
 
@@ -35,7 +35,7 @@ final class const TokenPairDto({
     if (parsedTokenType == null) {
       throw const FormatException('Invalid token pair.');
     }
-    return TokenPairDto(
+    return TokenPairDTO(
       accessToken: accessToken,
       refreshToken: refreshToken as String?,
       expiresIn: expiresIn,

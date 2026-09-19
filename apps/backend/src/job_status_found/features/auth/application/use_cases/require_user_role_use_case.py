@@ -3,11 +3,10 @@
 from uuid import UUID
 
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
+from job_status_found.features.auth.domain.failures.required_user_role_not_granted_failure import (
+    RequiredUserRoleNotGrantedFailure,
+)
 from job_status_found.features.auth.domain.value_objects.user_role import UserRole
-
-
-class RequiredUserRoleNotGranted(Exception):
-    """The account's stored role does not grant the requested operation."""
 
 
 class RequireUserRoleUseCase:
@@ -29,7 +28,7 @@ class RequireUserRoleUseCase:
             required_role: The role needed by the operation.
 
         Raises:
-            RequiredUserRoleNotGranted: The account is missing or has another role.
+            RequiredUserRoleNotGrantedFailure: The account is missing or has another role.
         """
         if await self._users.find_user_role(owner_id) is not required_role:
-            raise RequiredUserRoleNotGranted
+            raise RequiredUserRoleNotGrantedFailure

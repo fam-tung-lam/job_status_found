@@ -5,7 +5,7 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.current_user import CurrentUser
+from job_status_found.features.auth.application.dtos.current_user_dto import CurrentUserDTO
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
 from job_status_found.features.auth.application.use_cases.get_current_user_use_case import (
     GetCurrentUserUseCase,
@@ -28,7 +28,7 @@ class TestGetCurrentUserUseCase:
         """
         # Given: the authenticated account still exists.
         users = mocker.create_autospec(UserRepository, instance=True)
-        current_user = CurrentUser(
+        current_user = CurrentUserDTO(
             id=uuid4(),
             email="jane@example.com",
             first_name="Jane",

@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.new_auth_event import NewAuthEvent
+from job_status_found.features.auth.application.dtos.new_auth_event_dto import NewAuthEventDTO
 from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 
 
@@ -37,7 +37,7 @@ class AuthEventRepository(Protocol):
         """
         ...
 
-    async def create_auth_event(self, auth_event: NewAuthEvent) -> None:
+    async def create_auth_event(self, auth_event: NewAuthEventDTO) -> None:
         """Store a security event.
 
         Args:

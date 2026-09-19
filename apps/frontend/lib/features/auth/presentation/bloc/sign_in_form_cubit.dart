@@ -29,7 +29,7 @@ final class SignInFormCubit(
         rememberMe: rememberMe,
       );
       _setSignedInUser(user);
-    } on AuthRejected catch (failure) {
+    } on AuthRejectedFailure catch (failure) {
       if (failure.code == AuthRejectionCode.emailVerificationRequired) {
         emit(
           SignInFormEmailVerificationRequired(

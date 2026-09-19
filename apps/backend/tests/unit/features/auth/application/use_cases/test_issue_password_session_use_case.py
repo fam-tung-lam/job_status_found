@@ -6,10 +6,10 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
-from job_status_found.features.auth.application.dtos.session_input import SessionInput
+from job_status_found.features.auth.application.dtos.session_input_dto import SessionInputDTO
 from job_status_found.features.auth.application.ports.access_token_codec import AccessTokenCodec
 from job_status_found.features.auth.application.ports.session_repository import SessionRepository
 from job_status_found.features.auth.application.use_cases.issue_password_session_use_case import (
@@ -54,7 +54,7 @@ class TestIssuePasswordSessionUseCase:
         hash_refresh_token = mocker.stub(name="hash_refresh_token")
         owner_id = uuid4()
         session_id = uuid4()
-        session_input = SessionInput(
+        session_input = SessionInputDTO(
             client_kind=ClientKind.WEB,
             remember_me=is_persistent,
             ip_address=None,
@@ -97,7 +97,7 @@ class TestIssuePasswordSessionUseCase:
             expires_at=NOW + idle_lifetime,
         )
         access_tokens.issue_access_token.assert_called_once_with(
-            AccessTokenClaims(
+            AccessTokenClaimsDTO(
                 owner_id=owner_id,
                 session_id=session_id,
                 role=UserRole.USER,

@@ -1,7 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 /// The JSON body the backend returns from `GET /health`.
-final class const HealthStatusResponseDto({
+final class const HealthStatusResponseDTO({
   /// The backend status.
   required final HealthStatusResponseValue status,
 }) extends Equatable {
@@ -16,7 +16,7 @@ final class const HealthStatusResponseDto({
     if (status != HealthStatusResponseValue.ok.wireName) {
       throw FormatException('Expected status "ok" in $json.');
     }
-    return const HealthStatusResponseDto(status: HealthStatusResponseValue.ok);
+    return const HealthStatusResponseDTO(status: HealthStatusResponseValue.ok);
   }
 
   @override

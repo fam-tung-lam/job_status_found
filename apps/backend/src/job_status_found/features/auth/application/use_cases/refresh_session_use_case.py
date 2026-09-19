@@ -5,8 +5,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from job_status_found.features.auth.application.dtos.new_auth_event import NewAuthEvent
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.new_auth_event_dto import NewAuthEventDTO
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
 )
@@ -15,9 +15,9 @@ from job_status_found.features.auth.application.use_cases.issue_rotated_tokens_u
     IssueRotatedTokensUseCase,
 )
 from job_status_found.features.auth.domain.failures.session_refresh_failure import (
-    SessionRefreshOriginNotAllowed,
-    SessionRefreshSessionEnded,
-    SessionRefreshTokenInvalid,
+    SessionRefreshOriginNotAllowedFailure,
+    SessionRefreshSessionEndedFailure,
+    SessionRefreshTokenInvalidFailure,
 )
 from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 from job_status_found.features.auth.domain.value_objects.client_kind import ClientKind
@@ -89,7 +89,7 @@ class RefreshSessionUseCase:
         self._utc_now = utc_now
         self._settings = settings
 
-    async def invoke(self, refresh_token: str, *, is_origin_allowed: bool) -> TokenPair:
+    async def invoke(self, refresh_token: str, *, is_origin_allowed: bool) -> TokenPairDTO:
         """Rotate a refresh token and return committed replacement credentials.
 
         Args:
@@ -100,9 +100,9 @@ class RefreshSessionUseCase:
             The replacement token pair.
 
         Raises:
-            SessionRefreshTokenInvalid: No token row matches the credential.
-            SessionRefreshSessionEnded: The session ended or replay was detected.
-            SessionRefreshOriginNotAllowed: A web request has no allowed Origin.
+            SessionRefreshTokenInvalidFailure: No token row matches the credential.
+            SessionRefreshSessionEndedFailure: The session ended or replay was detected.
+            SessionRefreshOriginNotAllowedFailure: A web request has no allowed Origin.
         """
         now = self._utc_now()
         state = await self._sessions.lock_session_by_refresh_token_hash(
@@ -110,13 +110,13 @@ class RefreshSessionUseCase:
         )
         if state is None:
             await self._unit_of_work.commit()
-            raise SessionRefreshTokenInvalid
+            raise SessionRefreshTokenInvalidFailure
 
         # Every web-session refresh requires an allowed browser Origin, even if
         # a caller tries to move its cookie credential into the JSON body.
         if state.client_kind is ClientKind.WEB and not is_origin_allowed:
             await self._unit_of_work.commit()
-            raise SessionRefreshOriginNotAllowed
+            raise SessionRefreshOriginNotAllowedFailure
 
         # Account and expiry state ends the refresh before token-reuse decisions.
         is_ended = (
@@ -141,7 +141,7 @@ class RefreshSessionUseCase:
                     reason=SessionRevocationReason.ACCOUNT_DELETED,
                 )
             await self._unit_of_work.commit()
-            raise SessionRefreshSessionEnded
+            raise SessionRefreshSessionEndedFailure
 
         # A first use spends the token, slides idle expiry, and creates its child.
         if state.token_used_at is None and state.token_revoked_at is None:
@@ -196,7 +196,7 @@ class RefreshSessionUseCase:
             reason=SessionRevocationReason.REFRESH_TOKEN_REUSED,
         )
         await self._auth_events.create_auth_event(
-            NewAuthEvent(
+            NewAuthEventDTO(
                 owner_id=state.owner_id,
                 event_type=AuthEventType.REFRESH_TOKEN_REUSED,
                 details={"session_id": str(state.session_id)},
@@ -205,4 +205,4 @@ class RefreshSessionUseCase:
         )
         await self._unit_of_work.commit()
         logger.warning("Refresh-token reuse ended session %s", state.session_id)
-        raise SessionRefreshSessionEnded
+        raise SessionRefreshSessionEndedFailure

@@ -6,14 +6,14 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.new_auth_event import NewAuthEvent
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_auth_event_dto import NewAuthEventDTO
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
-from job_status_found.features.auth.application.dtos.password_sign_in_input import (
-    PasswordSignInInput,
+from job_status_found.features.auth.application.dtos.password_sign_in_input_dto import (
+    PasswordSignInInputDTO,
 )
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
@@ -29,9 +29,9 @@ from job_status_found.features.auth.application.use_cases.issue_password_session
     IssuePasswordSessionUseCase,
 )
 from job_status_found.features.auth.domain.failures.password_sign_in_failure import (
-    PasswordSignInAccountUnavailable,
-    PasswordSignInEmailNotVerified,
-    PasswordSignInInvalidCredentials,
+    PasswordSignInAccountUnavailableFailure,
+    PasswordSignInEmailNotVerifiedFailure,
+    PasswordSignInInvalidCredentialsFailure,
 )
 from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
@@ -108,7 +108,7 @@ class SignInWithPasswordUseCase:
         self._dummy_password_hash = dummy_password_hash
         self._settings = settings
 
-    async def invoke(self, sign_in: PasswordSignInInput) -> TokenPair:
+    async def invoke(self, sign_in: PasswordSignInInputDTO) -> TokenPairDTO:
         """Sign in with a password and return a committed session's credentials.
 
         Args:
@@ -118,9 +118,11 @@ class SignInWithPasswordUseCase:
             The new session's credentials.
 
         Raises:
-            PasswordSignInInvalidCredentials: The password account is not proved.
-            PasswordSignInEmailNotVerified: The password is right but the email is unverified.
-            PasswordSignInAccountUnavailable: The password is right but the account is blocked.
+            PasswordSignInInvalidCredentialsFailure: The password account is not proved.
+            PasswordSignInEmailNotVerifiedFailure: The password is right but the
+                email is unverified.
+            PasswordSignInAccountUnavailableFailure: The password is right but the
+                account is blocked.
         """
         now = self._utc_now()
         normalized_email = EmailAddress(sign_in.email).normalized
@@ -138,7 +140,7 @@ class SignInWithPasswordUseCase:
         if user is None or password_hash is None or not is_password_valid:
             identifier_hash = self._hash_auth_identifier(normalized_email)
             await self._auth_events.create_auth_event(
-                NewAuthEvent(
+                NewAuthEventDTO(
                     owner_id=user.id if user is not None else None,
                     event_type=AuthEventType.SIGN_IN_FAILED,
                     identifier_hash=identifier_hash,
@@ -153,7 +155,7 @@ class SignInWithPasswordUseCase:
                 user is not None,
                 identifier_hash.hex(),
             )
-            raise PasswordSignInInvalidCredentials
+            raise PasswordSignInInvalidCredentialsFailure
 
         # A proved but unverified account gets a paced replacement code.
         if not user.is_email_verified:
@@ -165,12 +167,12 @@ class SignInWithPasswordUseCase:
                 await self._email_sender.send_verification_code(
                     user.email, verification_code, self._settings.verification_code_lifetime
                 )
-            raise PasswordSignInEmailNotVerified
+            raise PasswordSignInEmailNotVerifiedFailure
 
         # Account state is disclosed only after the password is proved.
         if not user.is_available:
             await self._unit_of_work.commit()
-            raise PasswordSignInAccountUnavailable
+            raise PasswordSignInAccountUnavailableFailure
 
         # Strengthen old parameters and open the session in one commit.
         if replacement_hash is not None:
@@ -203,7 +205,7 @@ class SignInWithPasswordUseCase:
             return None
         code = self._generate_verification_code()
         await self._email_challenges.replace_open_email_challenge(
-            NewEmailChallenge(
+            NewEmailChallengeDTO(
                 owner_id=owner_id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
                 secret_hash=self._hash_verification_code(code),

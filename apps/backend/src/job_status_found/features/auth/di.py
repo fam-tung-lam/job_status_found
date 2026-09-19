@@ -100,7 +100,7 @@ from job_status_found.features.auth.infrastructure.helpers.hash_verification_cod
 from job_status_found.features.auth.infrastructure.helpers.verify_and_update_password import (
     verify_and_update_password,
 )
-from job_status_found.features.auth.presentation.http.refresh_cookie_settings import (
+from job_status_found.features.auth.presentation.http.v1.refresh_cookie_settings import (
     RefreshCookieSettings,
 )
 from job_status_found.features.core import (

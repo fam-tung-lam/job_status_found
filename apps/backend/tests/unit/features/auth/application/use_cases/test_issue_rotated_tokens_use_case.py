@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.access_token_claims import (
-    AccessTokenClaims,
+from job_status_found.features.auth.application.dtos.access_token_claims_dto import (
+    AccessTokenClaimsDTO,
 )
 from job_status_found.features.auth.application.ports.access_token_codec import AccessTokenCodec
 from job_status_found.features.auth.application.ports.session_repository import SessionRepository
@@ -75,7 +75,7 @@ class TestIssueRotatedTokensUseCase:
             expires_at=refresh_expires_at,
         )
         access_tokens.issue_access_token.assert_called_once_with(
-            AccessTokenClaims(
+            AccessTokenClaimsDTO(
                 owner_id=owner_id,
                 session_id=session_id,
                 role=UserRole.USER,

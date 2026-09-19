@@ -6,11 +6,13 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import UUID
 
-from job_status_found.features.auth.application.dtos.new_email_challenge import (
-    NewEmailChallenge,
+from job_status_found.features.auth.application.dtos.new_email_challenge_dto import (
+    NewEmailChallengeDTO,
 )
-from job_status_found.features.auth.application.dtos.sign_up_input import SignUpInput
-from job_status_found.features.auth.application.dtos.user_registration import UserRegistration
+from job_status_found.features.auth.application.dtos.sign_up_input_dto import SignUpInputDTO
+from job_status_found.features.auth.application.dtos.user_registration_dto import (
+    UserRegistrationDTO,
+)
 from job_status_found.features.auth.application.ports.auth_email_sender import AuthEmailSender
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
@@ -23,7 +25,9 @@ from job_status_found.features.auth.application.ports.password_credential_reposi
 )
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
 from job_status_found.features.auth.domain.entities.user import User
-from job_status_found.features.auth.domain.failures.sign_up_failure import SignUpPasswordTooWeak
+from job_status_found.features.auth.domain.failures.sign_up_failure import (
+    SignUpPasswordTooWeakFailure,
+)
 from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
@@ -109,28 +113,28 @@ class SignUpWithPasswordUseCase:
         self._email_sender = email_sender
         self._settings = settings
 
-    async def invoke(self, sign_up: SignUpInput) -> None:
+    async def invoke(self, sign_up: SignUpInputDTO) -> None:
         """Sign a person up, committing once and emailing after the commit.
 
         Args:
             sign_up: What the person submitted.
 
         Raises:
-            SignUpPasswordTooWeak: The password's length is outside the policy.
+            SignUpPasswordTooWeakFailure: The password's length is outside the policy.
             RuntimeError: The account holding the email was deleted while this
                 sign-up ran.
         """
         # Refuse a password outside the policy before any work or write.
         password_policy = self._settings.password_policy
         if not password_policy.is_length_allowed(sign_up.password):
-            raise SignUpPasswordTooWeak(
+            raise SignUpPasswordTooWeakFailure(
                 min_length=password_policy.min_length, max_length=password_policy.max_length
             )
 
         # Hash the password in every branch, so no branch answers measurably faster.
         password_hash = await self._hash_password(sign_up.password)
         now = self._utc_now()
-        registration = UserRegistration(
+        registration = UserRegistrationDTO(
             email=EmailAddress(sign_up.email),
             first_name=sign_up.first_name,
             last_name=sign_up.last_name,
@@ -211,7 +215,7 @@ class SignUpWithPasswordUseCase:
             await self._email_sender.send_existing_account_notice(user.email)
 
     async def _restart_unverified_sign_up_unless_code_sent_recently(
-        self, user: User, registration: UserRegistration, password_hash: str, now: datetime
+        self, user: User, registration: UserRegistrationDTO, password_hash: str, now: datetime
     ) -> None:
         """Replace an unverified account's details and code, unless a code went out too recently.
 
@@ -269,7 +273,7 @@ class SignUpWithPasswordUseCase:
         code = self._generate_verification_code()
 
         await self._email_challenges.replace_open_email_challenge(
-            NewEmailChallenge(
+            NewEmailChallengeDTO(
                 owner_id=user_id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
                 secret_hash=self._hash_verification_code(code),

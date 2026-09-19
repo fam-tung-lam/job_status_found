@@ -29,7 +29,7 @@ and the linked providers. Without a valid token, it returns 401 with
 - `AuthenticateAccessTokenUseCase`. The auth facade exports
   `AuthenticatedPrincipal`, `UserRole`, `AuthenticateAccessTokenUseCase`,
   and the guards below (§10).
-- `features/auth/presentation/http/authentication_guards.py` with
+- `features/auth/presentation/http/v1/guards/authentication_guards.py` with
   `get_authenticated_principal`, which returns
   `AuthenticatedPrincipal(user_id, session_id, role)` (§8 rule 2), and
   `require_role`, which loads the role from the database instead of trusting
@@ -80,7 +80,7 @@ tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
 |----------|-------|
 | JWT header and claim checks, `alg=none` rejection, missing claims, and verify-only key rotation | `tests/unit/features/auth/infrastructure/adapters/test_jwt_access_token_codec.py` |
 | Authentication returns the principal without a database collaborator | `tests/unit/features/auth/application/use_cases/test_authenticate_access_token_use_case.py` |
-| Wrongly signed and expired bearer tokens return 401 `access_token_invalid` with `WWW-Authenticate: Bearer` | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Wrongly signed and expired bearer tokens return 401 `access_token_invalid` with `WWW-Authenticate: Bearer` | `tests/integration/features/auth/presentation/http/v1/test_session_flow.py` |
 | Current-user profile and a deleted token subject | `tests/unit/features/auth/application/use_cases/test_get_current_user_use_case.py` |
 | Authenticated-by-default routing and public health/auth exceptions | `tests/integration/app/test_app.py` |
 | Stored-role authorization | `tests/unit/features/auth/application/use_cases/test_require_user_role_use_case.py` |

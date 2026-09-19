@@ -66,7 +66,9 @@ void main() {
     // Given: credential observation fails at the repository boundary.
     final repository = _MockAuthRepository();
     when(repository.watchAuthenticationStatus).thenAnswer(
-      (_) => Stream<AuthenticationStatus>.error(const AuthServerUnreachable()),
+      (_) => Stream<AuthenticationStatus>.error(
+        const AuthServerUnreachableFailure(),
+      ),
     );
     final cubit = AuthSessionCubit(
       RestoreSessionUseCase(repository),

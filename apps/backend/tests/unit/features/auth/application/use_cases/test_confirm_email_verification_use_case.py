@@ -6,11 +6,11 @@ from uuid import uuid4
 import pytest
 from pytest_mock import MockerFixture
 
-from job_status_found.features.auth.application.dtos.confirm_email_verification_input import (
-    ConfirmEmailVerificationInput,
+from job_status_found.features.auth.application.dtos.confirm_email_verification_input_dto import (
+    ConfirmEmailVerificationInputDTO,
 )
-from job_status_found.features.auth.application.dtos.session_input import SessionInput
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.session_input_dto import SessionInputDTO
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
 )
@@ -31,7 +31,7 @@ from job_status_found.features.auth.application.use_cases.issue_password_session
 from job_status_found.features.auth.domain.entities.email_challenge import EmailChallenge
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.domain.failures.email_verification_failure import (
-    EmailVerificationCodeInvalid,
+    EmailVerificationCodeInvalidFailure,
 )
 from job_status_found.features.auth.domain.value_objects.client_kind import ClientKind
 from job_status_found.features.core import UnitOfWork
@@ -79,7 +79,7 @@ class TestConfirmEmailVerificationUseCase:
         self.email_challenges.lock_open_email_challenge.return_value = self.challenge
         self.auth_events.count_auth_events_since.return_value = 0
         self.verify_password.return_value = (True, None)
-        self.token_pair = TokenPair(
+        self.token_pair = TokenPairDTO(
             access_token="access",
             expires_in=900,
             refresh_token="refresh",
@@ -102,13 +102,13 @@ class TestConfirmEmailVerificationUseCase:
             settings=EmailVerificationSettings(code_lifetime=timedelta(minutes=15)),
         )
 
-    def _confirmation(self) -> ConfirmEmailVerificationInput:
+    def _confirmation(self) -> ConfirmEmailVerificationInputDTO:
         """Build the shared valid confirmation input."""
-        return ConfirmEmailVerificationInput(
+        return ConfirmEmailVerificationInputDTO(
             email="Jane@example.com",
             code="123456",
             password="the matching password",
-            session=SessionInput(
+            session=SessionInputDTO(
                 client_kind=ClientKind.ANDROID,
                 remember_me=True,
                 ip_address=None,
@@ -156,7 +156,7 @@ class TestConfirmEmailVerificationUseCase:
 
         # When: another code-password pair fails against the current challenge.
         # Then: the fifth failure is persisted before the generic rejection.
-        with pytest.raises(EmailVerificationCodeInvalid):
+        with pytest.raises(EmailVerificationCodeInvalidFailure):
             await self.use_case.invoke(self._confirmation())
         self.auth_events.create_auth_event.assert_awaited_once()
         self.email_challenges.register_wrong_email_challenge_answer.assert_awaited_once_with(
@@ -182,7 +182,7 @@ class TestConfirmEmailVerificationUseCase:
 
         # When: a confirmation is submitted.
         # Then: one dummy Argon2id check runs and the generic failure follows after commit.
-        with pytest.raises(EmailVerificationCodeInvalid):
+        with pytest.raises(EmailVerificationCodeInvalidFailure):
             await self.use_case.invoke(self._confirmation())
         self.verify_password.assert_awaited_once_with("the matching password", "dummy-hash")
         self.auth_events.create_auth_event.assert_not_awaited()
@@ -207,7 +207,7 @@ class TestConfirmEmailVerificationUseCase:
 
         # When: confirmation runs.
         # Then: the expiry boundary is invalid and the failed proof commits.
-        with pytest.raises(EmailVerificationCodeInvalid):
+        with pytest.raises(EmailVerificationCodeInvalidFailure):
             await self.use_case.invoke(self._confirmation())
         self.issue_password_session.invoke.assert_not_awaited()
         self.auth_events.create_auth_event.assert_awaited_once()

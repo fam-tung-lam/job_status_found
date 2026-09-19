@@ -5,7 +5,7 @@ class SessionRefreshFailure(Exception):
     """A refresh credential did not produce a new token pair."""
 
 
-class SessionRefreshTokenInvalid(SessionRefreshFailure):
+class SessionRefreshTokenInvalidFailure(SessionRefreshFailure):
     """No refresh-token row matches the presented credential."""
 
     def __init__(self) -> None:
@@ -13,7 +13,7 @@ class SessionRefreshTokenInvalid(SessionRefreshFailure):
         super().__init__("The refresh token is invalid.")
 
 
-class SessionRefreshSessionEnded(SessionRefreshFailure):
+class SessionRefreshSessionEndedFailure(SessionRefreshFailure):
     """The refresh token belongs to a session that can no longer continue."""
 
     def __init__(self) -> None:
@@ -21,7 +21,7 @@ class SessionRefreshSessionEnded(SessionRefreshFailure):
         super().__init__("The session has ended.")
 
 
-class SessionRefreshOriginNotAllowed(SessionRefreshFailure):
+class SessionRefreshOriginNotAllowedFailure(SessionRefreshFailure):
     """A web refresh did not come from an allowed browser origin."""
 
     def __init__(self) -> None:

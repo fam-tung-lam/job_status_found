@@ -21,7 +21,7 @@ identity attaches to their account.
   ignores email matching (§6.5).
 - `(user_id, provider)` is unique, so a user has at most one Google identity
   (ERD).
-- §7 promises a `TokenPair` from the exchange, and §6.4 shows it creating a
+- §7 promises a `TokenPairResponse` from the exchange, and §6.4 shows it creating a
   session, which fits `sign_in` only. DEC-5 decides the `link` result.
 
 ## In scope

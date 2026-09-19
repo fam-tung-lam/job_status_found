@@ -82,12 +82,12 @@ class const _FailedCheckResult(
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context).health;
     return switch (failure) {
-      HealthCheckBackendUnreachable() => _HealthCheckResultAlert(
+      HealthCheckBackendUnreachableFailure() => _HealthCheckResultAlert(
         icon: Icons.cloud_off_outlined,
         variant: AppAlertVariant.error,
         message: strings.statusUnreachable,
       ),
-      HealthCheckUnexpectedResponse() => _HealthCheckResultAlert(
+      HealthCheckUnexpectedResponseFailure() => _HealthCheckResultAlert(
         icon: Icons.error_outline,
         variant: AppAlertVariant.error,
         message: strings.statusUnexpectedResponse,

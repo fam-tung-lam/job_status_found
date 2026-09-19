@@ -5,11 +5,11 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 
-from job_status_found.features.auth.application.dtos.confirm_email_verification_input import (
-    ConfirmEmailVerificationInput,
+from job_status_found.features.auth.application.dtos.confirm_email_verification_input_dto import (
+    ConfirmEmailVerificationInputDTO,
 )
-from job_status_found.features.auth.application.dtos.new_auth_event import NewAuthEvent
-from job_status_found.features.auth.application.dtos.token_pair import TokenPair
+from job_status_found.features.auth.application.dtos.new_auth_event_dto import NewAuthEventDTO
+from job_status_found.features.auth.application.dtos.token_pair_dto import TokenPairDTO
 from job_status_found.features.auth.application.ports.auth_event_repository import (
     AuthEventRepository,
 )
@@ -24,7 +24,7 @@ from job_status_found.features.auth.application.use_cases.issue_password_session
     IssuePasswordSessionUseCase,
 )
 from job_status_found.features.auth.domain.failures.email_verification_failure import (
-    EmailVerificationCodeInvalid,
+    EmailVerificationCodeInvalidFailure,
 )
 from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
@@ -95,7 +95,7 @@ class ConfirmEmailVerificationUseCase:
         self._dummy_password_hash = dummy_password_hash
         self._settings = settings
 
-    async def invoke(self, confirmation: ConfirmEmailVerificationInput) -> TokenPair:
+    async def invoke(self, confirmation: ConfirmEmailVerificationInputDTO) -> TokenPairDTO:
         """Confirm a code-password pair and return a committed session's credentials.
 
         Args:
@@ -105,7 +105,7 @@ class ConfirmEmailVerificationUseCase:
             The new session's credentials.
 
         Raises:
-            EmailVerificationCodeInvalid: Any part of the proof is unusable.
+            EmailVerificationCodeInvalidFailure: Any part of the proof is unusable.
             AssertionError: An internal invariant loses a proved account or challenge.
         """
         # Lock a known account and always pay for one Argon2id verification.
@@ -153,7 +153,7 @@ class ConfirmEmailVerificationUseCase:
             if user is not None and not user.is_email_verified:
                 next_failure_count = recent_failure_count + 1
                 await self._auth_events.create_auth_event(
-                    NewAuthEvent(
+                    NewAuthEventDTO(
                         owner_id=user.id,
                         event_type=AuthEventType.EMAIL_VERIFICATION_FAILED,
                         occurred_at=now,
@@ -173,7 +173,7 @@ class ConfirmEmailVerificationUseCase:
             await self._unit_of_work.commit()
             if user is not None and not user.is_email_verified:
                 logger.warning("Email verification failed for user %s", user.id)
-            raise EmailVerificationCodeInvalid
+            raise EmailVerificationCodeInvalidFailure
 
         # Consume the jointly proved challenge, strengthen the password if needed,
         # and open the session in one transaction.
