@@ -5,7 +5,7 @@ import 'package:job_status_found/features/health/presentation/bloc/health_status
 
 /// Holds the backend health shown on screen.
 ///
-/// Starts in [HealthStatusNotChecked]. Each [check] emits
+/// Starts in [HealthStatusNotChecked]. Each [checkBackendHealth] emits
 /// [HealthStatusChecking], then [HealthStatusHealthy] or
 /// [HealthStatusCheckFailed]. The widget that creates it closes it.
 final class HealthStatusCubit(
@@ -19,16 +19,16 @@ final class HealthStatusCubit(
   ///
   /// A result that arrives after [close] is dropped, because nothing observes
   /// it any more.
-  Future<void> check() async {
+  Future<void> checkBackendHealth() async {
     if (state is HealthStatusChecking) return;
     emit(const HealthStatusChecking());
-    final result = await _checkHealthStatus();
+    final result = await _runOneHealthCheck();
     if (!isClosed) emit(result);
   }
 
   /// Runs one check and returns [HealthStatusHealthy], or
   /// [HealthStatusCheckFailed] with the [HealthCheckFailure] that ended it.
-  Future<HealthStatusState> _checkHealthStatus() async {
+  Future<HealthStatusState> _runOneHealthCheck() async {
     try {
       await _checkHealthUseCase.invoke();
       return const HealthStatusHealthy();

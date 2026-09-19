@@ -7,7 +7,7 @@ from job_status_found.features.auth.presentation.http.schemas.sign_up_request im
     SignUpRequest,
 )
 
-VALID = {
+VALID_SIGN_UP_BODY = {
     "first_name": "Jane",
     "last_name": "Doe",
     "email": "jane@example.com",
@@ -31,7 +31,7 @@ def test_input_the_sign_up_cannot_store_safely_is_refused_as_invalid(
     field: str, value: str
 ) -> None:
     # Given: an otherwise valid body with one unsafe field.
-    body = VALID | {field: value}
+    body = VALID_SIGN_UP_BODY | {field: value}
 
     # When: the body is validated.
     with pytest.raises(ValidationError) as refusal:

@@ -37,8 +37,8 @@ async def handle_request_validation_error(_request: Request, error: Exception) -
         TypeError: The handler was registered for another exception type.
     """
     if not isinstance(error, RequestValidationError):
-        msg = f"Expected RequestValidationError, got {type(error).__name__}."
-        raise TypeError(msg)
+        error_message = f"Expected RequestValidationError, got {type(error).__name__}."
+        raise TypeError(error_message)
     status_code = status.HTTP_422_UNPROCESSABLE_CONTENT
     problem = InvalidInputProblemDetails(
         title=HTTPStatus(status_code).phrase,
@@ -46,8 +46,12 @@ async def handle_request_validation_error(_request: Request, error: Exception) -
         detail="The request has invalid or missing fields.",
         code=INVALID_INPUT_CODE,
         errors=[
-            InvalidInputError(loc=list(item["loc"]), msg=item["msg"], type=item["type"])
-            for item in error.errors()
+            InvalidInputError(
+                loc=list(validation_error["loc"]),
+                msg=validation_error["msg"],
+                type=validation_error["type"],
+            )
+            for validation_error in error.errors()
         ],
     )
     return JSONResponse(problem.model_dump(), status_code, media_type=PROBLEM_JSON_MEDIA_TYPE)

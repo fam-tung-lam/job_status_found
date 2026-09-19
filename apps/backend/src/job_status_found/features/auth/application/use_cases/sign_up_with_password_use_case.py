@@ -33,7 +33,7 @@ from job_status_found.features.core import UnitOfWork
 
 logger = logging.getLogger(__name__)
 
-EXISTING_ACCOUNT_NOTICE_SENT = "existing_account_notice_sent"
+EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE = "existing_account_notice_sent"
 """`auth_events.event_type` of a notice sent to a verified account's owner."""
 
 
@@ -125,9 +125,11 @@ class SignUpWithPasswordUseCase:
             RuntimeError: The account holding the email was deleted while this
                 sign-up ran.
         """
-        policy = self._settings.password_policy
-        if not policy.validate(sign_up.password):
-            raise SignUpPasswordTooWeak(min_length=policy.min_length, max_length=policy.max_length)
+        password_policy = self._settings.password_policy
+        if not password_policy.is_length_allowed(sign_up.password):
+            raise SignUpPasswordTooWeak(
+                min_length=password_policy.min_length, max_length=password_policy.max_length
+            )
         password_hash = await self._hash_password(sign_up.password)
         now = self._utc_now()
         registration = UserRegistration(
@@ -138,53 +140,67 @@ class SignUpWithPasswordUseCase:
             registered_at=now,
         )
 
-        new_user = await self._users.add_unverified(registration)
+        new_user = await self._users.create_unverified_user_unless_email_taken(registration)
         if new_user is not None:
-            await self._finish_new_user(new_user, password_hash, now)
+            await self._set_password_and_email_first_verification_code(new_user, password_hash, now)
             return
-        existing_user = await self._users.lock_by_normalized_email(registration.email.normalized)
+        existing_user = await self._users.lock_user_by_normalized_email(
+            registration.email.normalized
+        )
         if existing_user is None:
-            msg = "The account holding the signed-up email was deleted during the sign-up."
-            raise RuntimeError(msg)
+            error_message = (
+                "The account holding the signed-up email was deleted during the sign-up."
+            )
+            raise RuntimeError(error_message)
         if existing_user.is_email_verified:
-            await self._finish_verified_user(existing_user, now)
+            await self._email_existing_account_notice_unless_sent_recently(existing_user, now)
         else:
-            await self._finish_unverified_user(existing_user, registration, password_hash, now)
+            await self._restart_unverified_sign_up_unless_code_sent_recently(
+                existing_user, registration, password_hash, now
+            )
 
-    async def _finish_new_user(self, user: User, password_hash: str, now: datetime) -> None:
+    async def _set_password_and_email_first_verification_code(
+        self, user: User, password_hash: str, now: datetime
+    ) -> None:
         """Give a just-created account its password and first code, commit, then mail the code.
 
         Args:
-            user: The account `add_unverified` just created.
+            user: The account `create_unverified_user_unless_email_taken` just created.
             password_hash: The Argon2id hash of the submitted password.
             now: The instant of this sign-up.
         """
-        await self._password_credentials.save(user.id, password_hash, now)
-        code = await self._open_verification_code(user.id, now)
+        await self._password_credentials.set_password_hash(user.id, password_hash, now)
+        verification_code = await self._issue_verification_code(user.id, now)
         await self._unit_of_work.commit()
         logger.info("Sign-up created unverified user %s", user.id)
-        await self._send_verification_code(user, code)
+        await self._send_verification_code(user, verification_code)
 
-    async def _finish_verified_user(self, user: User, now: datetime) -> None:
+    async def _email_existing_account_notice_unless_sent_recently(
+        self, user: User, now: datetime
+    ) -> None:
         """Leave a verified account unchanged; mail its owner a notice at most once per interval.
 
         Args:
             user: The verified account that owns the submitted email.
             now: The instant of this sign-up.
         """
-        last_notice_at = await self._auth_events.find_latest_created_at(
-            user.id, EXISTING_ACCOUNT_NOTICE_SENT
+        last_notice_sent_at = await self._auth_events.find_last_auth_event_occurred_at(
+            user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE
         )
-        send_notice = self._interval_passed(last_notice_at, now)
-        if send_notice:
-            await self._auth_events.record(user.id, EXISTING_ACCOUNT_NOTICE_SENT, now)
+        should_send_notice = self._has_send_interval_passed_since(last_notice_sent_at, now)
+        if should_send_notice:
+            await self._auth_events.record_auth_event(
+                user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE, now
+            )
         # Also ends the transaction that locked the row when nothing was written.
         await self._unit_of_work.commit()
-        logger.info("Sign-up matched verified user %s; notice sent: %s", user.id, send_notice)
-        if send_notice:
+        logger.info(
+            "Sign-up matched verified user %s; notice sent: %s", user.id, should_send_notice
+        )
+        if should_send_notice:
             await self._email_sender.send_existing_account_notice(user.email)
 
-    async def _finish_unverified_user(
+    async def _restart_unverified_sign_up_unless_code_sent_recently(
         self, user: User, registration: UserRegistration, password_hash: str, now: datetime
     ) -> None:
         """Replace an unverified account's details and code, unless a code went out too recently.
@@ -198,21 +214,21 @@ class SignUpWithPasswordUseCase:
             password_hash: The Argon2id hash of the submitted password.
             now: The instant of this sign-up.
         """
-        last_code_at = await self._email_challenges.find_latest_created_at(
+        last_code_sent_at = await self._email_challenges.find_last_email_challenge_sent_at(
             user.id, EmailChallengePurpose.VERIFY_EMAIL
         )
-        if not self._interval_passed(last_code_at, now):
+        if not self._has_send_interval_passed_since(last_code_sent_at, now):
             await self._unit_of_work.commit()
             logger.info("Sign-up left unverified user %s unchanged within the interval", user.id)
             return
-        await self._users.update_registration(user.id, registration)
-        await self._password_credentials.save(user.id, password_hash, now)
-        code = await self._open_verification_code(user.id, now)
+        await self._users.replace_name_and_accepted_terms(user.id, registration)
+        await self._password_credentials.set_password_hash(user.id, password_hash, now)
+        verification_code = await self._issue_verification_code(user.id, now)
         await self._unit_of_work.commit()
         logger.info("Sign-up replaced the password and code of unverified user %s", user.id)
-        await self._send_verification_code(user, code)
+        await self._send_verification_code(user, verification_code)
 
-    def _interval_passed(self, last_sent_at: datetime | None, now: datetime) -> bool:
+    def _has_send_interval_passed_since(self, last_sent_at: datetime | None, now: datetime) -> bool:
         """Tell whether another sign-up email may go out to the same user.
 
         Args:
@@ -224,7 +240,7 @@ class SignUpWithPasswordUseCase:
         """
         return last_sent_at is None or now >= last_sent_at + self._settings.email_send_interval
 
-    async def _open_verification_code(self, user_id: UUID, now: datetime) -> str:
+    async def _issue_verification_code(self, user_id: UUID, now: datetime) -> str:
         """Create a code and store its keyed hash, replacing the user's open code.
 
         Args:
@@ -235,7 +251,7 @@ class SignUpWithPasswordUseCase:
             The code in the clear, to mail after the commit.
         """
         code = self._generate_verification_code()
-        await self._email_challenges.replace_open(
+        await self._email_challenges.replace_open_email_challenge(
             NewEmailChallenge(
                 owner_id=user_id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,

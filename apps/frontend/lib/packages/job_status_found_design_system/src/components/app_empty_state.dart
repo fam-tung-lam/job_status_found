@@ -77,7 +77,7 @@ class const _IconTileStack(
 
   /// How far each back tile leans away from the front tile, in radians; ten
   /// degrees.
-  static const double _lean = 0.1745;
+  static const double _backTileLeanRadians = 0.1745;
 
   /// The scale of each back tile relative to the front tile.
   static const double _backTileScale = 0.84;
@@ -89,24 +89,24 @@ class const _IconTileStack(
       children: [
         Transform(
           alignment: Alignment.bottomLeft,
-          transform: Matrix4.rotationZ(-_lean)
+          transform: Matrix4.rotationZ(-_backTileLeanRadians)
             ..scaleByDouble(_backTileScale, _backTileScale, 1, 1),
-          child: const _Tile(),
+          child: const _IconTile(),
         ),
         Transform(
           alignment: Alignment.bottomRight,
-          transform: Matrix4.rotationZ(_lean)
+          transform: Matrix4.rotationZ(_backTileLeanRadians)
             ..scaleByDouble(_backTileScale, _backTileScale, 1, 1),
-          child: const _Tile(),
+          child: const _IconTile(),
         ),
-        _Tile(icon: icon),
+        _IconTile(icon: icon),
       ],
     );
   }
 }
 
 /// A small bordered square; the front one is raised and holds the icon.
-class const _Tile({
+class const _IconTile({
   /// The icon in the middle; an empty back tile when `null`.
   final IconData? icon,
 }) extends StatelessWidget {

@@ -35,7 +35,7 @@ class SmtpEmailSenderClient:
         security: SmtpSecurity,
         username: str | None,
         password: str | None,
-        sender: str,
+        from_address: str,
     ) -> None:
         """Deliver through one SMTP server.
 
@@ -45,16 +45,16 @@ class SmtpEmailSenderClient:
             security: How the connection is protected.
             username: SMTP user name; `None` skips authentication.
             password: Password for `username`.
-            sender: The `From` address of every email.
+            from_address: The `From` address of every email.
         """
         self._hostname = hostname
         self._port = port
         self._security = security
         self._username = username
         self._password = password
-        self._sender = sender
+        self._from_address = from_address
 
-    async def send(self, *, recipient: str, subject: str, body: str) -> None:
+    async def send_plain_text_email(self, *, recipient: str, subject: str, body: str) -> None:
         """Send one plain-text email and wait until the server accepts it.
 
         Args:
@@ -67,7 +67,7 @@ class SmtpEmailSenderClient:
                 refused the email.
         """
         message = EmailMessage()
-        message["From"] = self._sender
+        message["From"] = self._from_address
         message["To"] = recipient
         message["Subject"] = subject
         message.set_content(body)
@@ -83,10 +83,10 @@ class SmtpEmailSenderClient:
                 timeout=_SMTP_TIMEOUT_SECONDS,
             )
         except (aiosmtplib.SMTPException, OSError) as error:
-            raise EmailDeliveryFailure(_describe(error)) from error
+            raise EmailDeliveryFailure(_describe_smtp_error_without_recipient(error)) from error
 
 
-def _describe(error: aiosmtplib.SMTPException | OSError) -> str:
+def _describe_smtp_error_without_recipient(error: aiosmtplib.SMTPException | OSError) -> str:
     """Describe an SMTP error without any recipient address it may quote.
 
     A server reply or a refused recipient can quote the address, so those keep

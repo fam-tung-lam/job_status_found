@@ -12,17 +12,17 @@ import 'package:job_status_found/packages/job_status_found_http_client/job_statu
 /// unknown body.
 final class const ApiHealthRepository(
   /// Fetches the raw health response from the backend.
-  final HealthApiClient _client,
+  final HealthApiClient _healthApiClient,
 ) implements HealthRepository {
   /// Creates the repository over the backend [HealthApiClient].
   this;
 
   @override
-  Future<void> check() async {
+  Future<void> checkBackendHealth() async {
     try {
-      _ensureHealthy(await _client.getHealth());
+      _throwUnlessStatusIsOk(await _healthApiClient.fetchHealthStatus());
     } on JobStatusFoundHttpClientException catch (exception, stackTrace) {
-      Error.throwWithStackTrace(_toFailure(exception), stackTrace);
+      Error.throwWithStackTrace(_toHealthCheckFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
       Error.throwWithStackTrace(
         const HealthCheckUnexpectedResponse(),
@@ -34,7 +34,7 @@ final class const ApiHealthRepository(
   /// Returns normally when the wire status word is `ok`.
   ///
   /// Throws [FormatException] for a word this app does not know.
-  void _ensureHealthy(HealthStatusResponseDto response) {
+  void _throwUnlessStatusIsOk(HealthStatusResponseDto response) {
     if (response.status != 'ok') {
       throw FormatException('Unknown health status in $response.');
     }
@@ -43,18 +43,19 @@ final class const ApiHealthRepository(
   /// Classifies a failed request: a response the app cannot use becomes
   /// [HealthCheckUnexpectedResponse], and any other failure
   /// [HealthCheckBackendUnreachable].
-  HealthCheckFailure _toFailure(JobStatusFoundHttpClientException exception) =>
-      switch (exception) {
-        JobStatusFoundHttpClientBadResponse() ||
-        JobStatusFoundHttpClientTransformTimeout() =>
-          const HealthCheckUnexpectedResponse(),
-        JobStatusFoundHttpClientConnectionTimeout() ||
-        JobStatusFoundHttpClientSendTimeout() ||
-        JobStatusFoundHttpClientReceiveTimeout() ||
-        JobStatusFoundHttpClientBadCertificate() ||
-        JobStatusFoundHttpClientCancelled() ||
-        JobStatusFoundHttpClientConnectionFailed() ||
-        JobStatusFoundHttpClientUnknownFailure() =>
-          const HealthCheckBackendUnreachable(),
-      };
+  HealthCheckFailure _toHealthCheckFailure(
+    JobStatusFoundHttpClientException exception,
+  ) => switch (exception) {
+    JobStatusFoundHttpClientBadResponse() ||
+    JobStatusFoundHttpClientTransformTimeout() =>
+      const HealthCheckUnexpectedResponse(),
+    JobStatusFoundHttpClientConnectionTimeout() ||
+    JobStatusFoundHttpClientSendTimeout() ||
+    JobStatusFoundHttpClientReceiveTimeout() ||
+    JobStatusFoundHttpClientBadCertificate() ||
+    JobStatusFoundHttpClientCancelled() ||
+    JobStatusFoundHttpClientConnectionFailed() ||
+    JobStatusFoundHttpClientUnknownFailure() =>
+      const HealthCheckBackendUnreachable(),
+  };
 }

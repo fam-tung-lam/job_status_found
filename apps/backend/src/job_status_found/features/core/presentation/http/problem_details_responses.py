@@ -10,7 +10,7 @@ from job_status_found.features.core.presentation.http.schemas.problem_details im
 PROBLEM_JSON_MEDIA_TYPE = "application/problem+json"
 """Media type of every error response."""
 
-SCHEMA_REF_TEMPLATE = "#/components/schemas/{model}"
+OPENAPI_SCHEMA_REF_TEMPLATE = "#/components/schemas/{model}"
 """Where OpenAPI keeps a named schema."""
 
 
@@ -36,7 +36,7 @@ def problem_details_response(
     )
 
 
-def problem_details_content(model: type[ProblemDetails] = ProblemDetails) -> dict[str, Any]:
+def problem_details_openapi_content(model: type[ProblemDetails] = ProblemDetails) -> dict[str, Any]:
     """Describe a problem body for a route's `responses=` entry.
 
     FastAPI files a response `model` under the route's own media type, which is
@@ -49,5 +49,5 @@ def problem_details_content(model: type[ProblemDetails] = ProblemDetails) -> dic
     Returns:
         The `content` value of an OpenAPI response object.
     """
-    ref = SCHEMA_REF_TEMPLATE.format(model=model.__name__)
-    return {PROBLEM_JSON_MEDIA_TYPE: {"schema": {"$ref": ref}}}
+    schema_ref = OPENAPI_SCHEMA_REF_TEMPLATE.format(model=model.__name__)
+    return {PROBLEM_JSON_MEDIA_TYPE: {"schema": {"$ref": schema_ref}}}

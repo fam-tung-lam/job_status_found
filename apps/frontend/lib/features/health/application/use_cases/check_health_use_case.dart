@@ -4,7 +4,7 @@ import 'package:job_status_found/features/health/domain/failures/health_check_fa
 /// Checks whether the backend can serve requests.
 final class const CheckHealthUseCase(
   /// Answers each health check.
-  final HealthRepository _repository,
+  final HealthRepository _healthRepository,
 ) {
   /// Creates the use case over the [HealthRepository] that answers it.
   this;
@@ -13,5 +13,5 @@ final class const CheckHealthUseCase(
   ///
   /// Throws a [HealthCheckFailure] when the backend is unreachable or answers
   /// with something this app does not understand.
-  Future<void> invoke() => _repository.check();
+  Future<void> invoke() => _healthRepository.checkBackendHealth();
 }

@@ -10,7 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from job_status_found.app.app import create_app
-from job_status_found.features.core import get_database_session, get_settings
+from job_status_found.features.core import get_app_settings, get_database_session
 
 
 @pytest.fixture
@@ -21,9 +21,9 @@ def postgres_database_configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[No
     another name proves the setting is used.
     """
     monkeypatch.setenv("JSF_DATABASE_NAME", "postgres")
-    get_settings.cache_clear()
+    get_app_settings.cache_clear()
     yield
-    get_settings.cache_clear()
+    get_app_settings.cache_clear()
 
 
 @pytest.fixture
@@ -31,9 +31,9 @@ def unreachable_database(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Point the settings at a port where no database listens, and drop the cached ones around."""
     monkeypatch.setenv("JSF_DATABASE_HOST", "127.0.0.1")
     monkeypatch.setenv("JSF_DATABASE_PORT", "1")
-    get_settings.cache_clear()
+    get_app_settings.cache_clear()
     yield
-    get_settings.cache_clear()
+    get_app_settings.cache_clear()
 
 
 def _create_app_reporting_its_database_name() -> FastAPI:

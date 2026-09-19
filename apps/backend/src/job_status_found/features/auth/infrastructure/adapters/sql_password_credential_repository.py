@@ -20,7 +20,9 @@ class SqlPasswordCredentialRepository:
         """
         self._session = session
 
-    async def save(self, owner_id: UUID, password_hash: str, changed_at: datetime) -> None:
+    async def set_password_hash(
+        self, owner_id: UUID, password_hash: str, changed_at: datetime
+    ) -> None:
         """Set a user's password hash, adding the credential when the user has none.
 
         Args:

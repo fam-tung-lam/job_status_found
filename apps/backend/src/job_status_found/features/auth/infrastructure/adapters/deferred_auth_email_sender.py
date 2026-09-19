@@ -16,15 +16,17 @@ class DeferredAuthEmailSender:
     one.
     """
 
-    def __init__(self, background_tasks: BackgroundTasks, sender: AuthEmailSender) -> None:
+    def __init__(
+        self, background_tasks: BackgroundTasks, immediate_sender: AuthEmailSender
+    ) -> None:
         """Defer every email to the current request's background tasks.
 
         Args:
             background_tasks: The tasks that run after the response is sent.
-            sender: The sender that delivers each email.
+            immediate_sender: The sender that delivers each email as soon as it is called.
         """
         self._background_tasks = background_tasks
-        self._sender = sender
+        self._immediate_sender = immediate_sender
 
     async def send_verification_code(self, recipient: str, code: str, valid_for: timedelta) -> None:
         """Schedule a verification code email for after the response.
@@ -35,7 +37,7 @@ class DeferredAuthEmailSender:
             valid_for: How long the code works, stated in the email.
         """
         self._background_tasks.add_task(
-            self._sender.send_verification_code, recipient, code, valid_for
+            self._immediate_sender.send_verification_code, recipient, code, valid_for
         )
 
     async def send_existing_account_notice(self, recipient: str) -> None:
@@ -44,4 +46,6 @@ class DeferredAuthEmailSender:
         Args:
             recipient: The address of the existing account.
         """
-        self._background_tasks.add_task(self._sender.send_existing_account_notice, recipient)
+        self._background_tasks.add_task(
+            self._immediate_sender.send_existing_account_notice, recipient
+        )

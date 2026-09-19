@@ -7,7 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import '../../../../../test_doubles/mock_job_status_found_http_client.dart';
 
 void main() {
-  group('ApiHealthRepository.check', () {
+  group('ApiHealthRepository.checkBackendHealth', () {
     late MockJobStatusFoundHttpClient httpClient;
     late ApiHealthRepository repository;
 
@@ -22,10 +22,13 @@ void main() {
           .thenAnswer((_) async => {'status': 'degraded'});
 
       // When: the app checks the backend.
-      final check = repository.check();
+      final healthCheck = repository.checkBackendHealth();
 
       // Then: the check fails as an unexpected response.
-      await expectLater(check, throwsA(const HealthCheckUnexpectedResponse()));
+      await expectLater(
+        healthCheck,
+        throwsA(const HealthCheckUnexpectedResponse()),
+      );
     });
   });
 }

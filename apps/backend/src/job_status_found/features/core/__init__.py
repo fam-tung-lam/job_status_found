@@ -4,7 +4,7 @@ This facade is the only path another feature or `app/` imports core from.
 Core imports no other feature and nothing from `app/`.
 """
 
-from job_status_found.features.core.app_settings import AppSettings, get_settings
+from job_status_found.features.core.app_settings import AppSettings, get_app_settings
 from job_status_found.features.core.application.ports.unit_of_work import UnitOfWork
 from job_status_found.features.core.di import (
     get_smtp_email_sender_client,
@@ -33,7 +33,7 @@ from job_status_found.features.core.presentation.http.problem_details_fastapi im
 )
 from job_status_found.features.core.presentation.http.problem_details_responses import (
     PROBLEM_JSON_MEDIA_TYPE,
-    problem_details_content,
+    problem_details_openapi_content,
     problem_details_response,
 )
 from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details import (
@@ -57,14 +57,14 @@ __all__ = [
     "SmtpSecurity",
     "SurrogateKey",
     "UnitOfWork",
+    "get_app_settings",
     "get_database_session",
-    "get_settings",
     "get_smtp_email_sender_client",
     "get_unit_of_work",
     "get_utc_now",
     "handle_request_validation_error",
     "open_database",
-    "problem_details_content",
+    "problem_details_openapi_content",
     "problem_details_response",
     "settings_config",
 ]

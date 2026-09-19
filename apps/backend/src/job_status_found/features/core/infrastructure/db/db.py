@@ -122,7 +122,7 @@ async def get_database_session(request: Request) -> AsyncIterator[AsyncSession]:
     """
     session_factory = getattr(request.app.state, "database_session_factory", None)
     if not isinstance(session_factory, DatabaseSessionFactory):
-        msg = "No database is open; the application's lifespan opens it before requests."
-        raise RuntimeError(msg)
+        error_message = "No database is open; the application's lifespan opens it before requests."
+        raise RuntimeError(error_message)
     async with session_factory() as session:
         yield session

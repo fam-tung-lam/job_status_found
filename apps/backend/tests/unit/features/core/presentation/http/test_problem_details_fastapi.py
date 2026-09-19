@@ -3,10 +3,10 @@
 from fastapi import status
 from pydantic import BaseModel
 
-from job_status_found.features.core import ProblemDetailsFastAPI, problem_details_content
+from job_status_found.features.core import ProblemDetailsFastAPI, problem_details_openapi_content
 
 
-class _Body(BaseModel):
+class _BodyWithRequiredName(BaseModel):
     """A request body, so the route can fail validation with a 422."""
 
     name: str
@@ -20,10 +20,13 @@ def test_the_openapi_document_describes_errors_as_problem_json() -> None:
     @app.post(
         "/things",
         responses={
-            status.HTTP_400_BAD_REQUEST: {"description": "x", "content": problem_details_content()}
+            status.HTTP_400_BAD_REQUEST: {
+                "description": "x",
+                "content": problem_details_openapi_content(),
+            }
         },
     )
-    async def create_thing(body: _Body) -> None:
+    async def create_thing(body: _BodyWithRequiredName) -> None:
         """Accept a thing; only the route's OpenAPI description matters here."""
 
     # When: the OpenAPI document is built.

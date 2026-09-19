@@ -13,13 +13,15 @@ async def test_an_unreachable_mail_server_fails_without_naming_the_recipient() -
         security="none",
         username=None,
         password=None,
-        sender="JSV <no-reply@example.com>",
+        from_address="JSV <no-reply@example.com>",
     )
 
     # When: an email is sent.
     # Then: delivery fails with the typed failure, whose message a caller may
     # log because it names neither the recipient nor the content.
     with pytest.raises(EmailDeliveryFailure) as failure:
-        await client.send(recipient="jane@example.com", subject="Code 123456", body="123456")
+        await client.send_plain_text_email(
+            recipient="jane@example.com", subject="Code 123456", body="123456"
+        )
     assert "jane@example.com" not in str(failure.value)
     assert "123456" not in str(failure.value)

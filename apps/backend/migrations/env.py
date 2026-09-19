@@ -11,9 +11,9 @@ from sqlalchemy import Connection, create_engine
 from sqlalchemy.pool import NullPool
 
 from job_status_found.app.alembic_metadata import metadata
-from job_status_found.features.core import get_settings
+from job_status_found.features.core import get_app_settings
 
-_SET_LOCK_TIMEOUT = "SET LOCAL lock_timeout = '5s'"
+_SET_LOCK_TIMEOUT_SQL = "SET LOCAL lock_timeout = '5s'"
 """SQL that makes a revision fail after waiting 5 s for a table lock.
 
 Without it, a revision that alters a live table would queue every request
@@ -31,17 +31,17 @@ if config.config_file_name is not None and "connection" not in config.attributes
 def run_migrations_offline() -> None:
     """Write the migration SQL to standard output without connecting."""
     context.configure(
-        url=get_settings().database_url,
+        url=get_app_settings().database_url,
         target_metadata=metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
     )
     with context.begin_transaction():
-        context.execute(_SET_LOCK_TIMEOUT)
+        context.execute(_SET_LOCK_TIMEOUT_SQL)
         context.run_migrations()
 
 
-def run_migrations_on(connection: Connection) -> None:
+def run_migrations_over_connection(connection: Connection) -> None:
     """Run the pending revisions over an open connection.
 
     `alembic check` and autogenerate also compare server defaults and, by name,
@@ -58,7 +58,7 @@ def run_migrations_on(connection: Connection) -> None:
         autogenerate_plugins=["alembic.autogenerate.*", "alembic.ext.checkconstraint_byname"],
     )
     with context.begin_transaction():
-        context.execute(_SET_LOCK_TIMEOUT)
+        context.execute(_SET_LOCK_TIMEOUT_SQL)
         context.run_migrations()
 
 
@@ -71,15 +71,17 @@ def run_migrations_online() -> None:
     """
     connection = config.attributes.get("connection")
     if isinstance(connection, Connection):
-        run_migrations_on(connection)
+        run_migrations_over_connection(connection)
         return
     if connection is not None:
-        msg = f'config.attributes["connection"] must be a Connection, not {type(connection)}.'
-        raise TypeError(msg)
-    engine = create_engine(get_settings().database_url, poolclass=NullPool)
+        error_message = (
+            f'config.attributes["connection"] must be a Connection, not {type(connection)}.'
+        )
+        raise TypeError(error_message)
+    engine = create_engine(get_app_settings().database_url, poolclass=NullPool)
     try:
         with engine.connect() as new_connection:
-            run_migrations_on(new_connection)
+            run_migrations_over_connection(new_connection)
     finally:
         engine.dispose()
 

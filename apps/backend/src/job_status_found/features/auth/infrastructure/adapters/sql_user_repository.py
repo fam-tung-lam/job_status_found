@@ -10,7 +10,7 @@ from job_status_found.features.auth.application.dtos.user_registration import Us
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.infrastructure.db.tables import UserTable
 
-_DEFAULT_ROLE = "user"
+_NEW_USER_ROLE = "user"
 """Instance role every new account gets; only an admin tool may grant `admin`."""
 
 
@@ -25,7 +25,9 @@ class SqlUserRepository:
         """
         self._session = session
 
-    async def add_unverified(self, registration: UserRegistration) -> User | None:
+    async def create_unverified_user_unless_email_taken(
+        self, registration: UserRegistration
+    ) -> User | None:
         """Create an unverified account unless its normalized email already has one.
 
         The insert waits for a concurrent transaction that holds the same
@@ -41,11 +43,11 @@ class SqlUserRepository:
             insert(UserTable)
             .values(
                 {
-                    UserTable.email: registration.email.value,
+                    UserTable.email: registration.email.as_typed,
                     UserTable.email_normalized: registration.email.normalized,
                     UserTable.first_name: registration.first_name,
                     UserTable.last_name: registration.last_name,
-                    UserTable.role: _DEFAULT_ROLE,
+                    UserTable.role: _NEW_USER_ROLE,
                     UserTable.terms_version: registration.terms_version,
                     UserTable.terms_accepted_at: registration.registered_at,
                     UserTable.created_at: registration.registered_at,
@@ -58,9 +60,9 @@ class SqlUserRepository:
         user_id = await self._session.scalar(statement)
         if user_id is None:
             return None
-        return User(id=user_id, email=registration.email.value, email_verified_at=None)
+        return User(id=user_id, email=registration.email.as_typed, email_verified_at=None)
 
-    async def lock_by_normalized_email(self, email_normalized: str) -> User | None:
+    async def lock_user_by_normalized_email(self, email_normalized: str) -> User | None:
         """Find the account of a normalized email and lock it until the transaction ends.
 
         Args:
@@ -79,7 +81,9 @@ class SqlUserRepository:
             return None
         return User(id=row.id, email=row.email, email_verified_at=row.email_verified_at)
 
-    async def update_registration(self, owner_id: UUID, registration: UserRegistration) -> None:
+    async def replace_name_and_accepted_terms(
+        self, owner_id: UUID, registration: UserRegistration
+    ) -> None:
         """Replace an account's name and accepted terms with those of a later sign-up.
 
         Args:

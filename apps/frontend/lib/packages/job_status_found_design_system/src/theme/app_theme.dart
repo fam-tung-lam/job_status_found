@@ -19,13 +19,19 @@ abstract final class AppTheme._() {
   this;
 
   /// The theme for a light surface.
-  static final ThemeData light = _build(AppColors.light, Brightness.light);
+  static final ThemeData light = _buildThemeData(
+    AppColors.light,
+    Brightness.light,
+  );
 
   /// The theme for a dark surface.
-  static final ThemeData dark = _build(AppColors.dark, Brightness.dark);
+  static final ThemeData dark = _buildThemeData(
+    AppColors.dark,
+    Brightness.dark,
+  );
 
   /// Returns the theme that paints with [colors] at the given [brightness].
-  static ThemeData _build(AppColors colors, Brightness brightness) {
+  static ThemeData _buildThemeData(AppColors colors, Brightness brightness) {
     ButtonStyle buttonStyle(AppButtonVariant variant) => buildAppButtonStyle(
       colors: colors,
       brightness: brightness,

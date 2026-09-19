@@ -15,7 +15,7 @@ from job_status_found.features.auth.presentation.http.auth_exception_handlers im
 from job_status_found.features.auth.presentation.http.auth_router import router as auth_router
 from job_status_found.features.core import (
     ProblemDetailsFastAPI,
-    get_settings,
+    get_app_settings,
     handle_request_validation_error,
     open_database,
 )
@@ -36,7 +36,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     Yields:
         Control to FastAPI while the application serves requests.
     """
-    async with open_database(app, get_settings().database_url), open_auth(app):
+    async with open_database(app, get_app_settings().database_url), open_auth(app):
         yield
 
 
@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
     Returns:
         A new, fully composed application instance.
     """
-    settings = get_settings()
+    settings = get_app_settings()
     app = ProblemDetailsFastAPI(
         title=settings.app_name, version=settings.version, lifespan=lifespan
     )

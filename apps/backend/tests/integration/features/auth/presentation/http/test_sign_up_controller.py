@@ -31,7 +31,7 @@ from job_status_found.features.auth.infrastructure.db.tables import (
     PasswordCredentialTable,
     UserTable,
 )
-from job_status_found.features.core import get_settings, get_utc_now
+from job_status_found.features.core import get_app_settings, get_utc_now
 
 SIGN_UP_PATH = "/v1/auth/sign-up"
 """The endpoint under test."""
@@ -42,10 +42,10 @@ HMAC_KEY = "integration-test-hmac-key-with-32-plus-characters"
 TERMS_VERSION = "2026-09-19-integration"
 """The terms version the tests configure, which a new account must record."""
 
-T0 = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
+STUBBED_START_TIME = datetime(2026, 9, 19, 12, 0, tzinfo=UTC)
 """The instant the stubbed `utc_now` tells unless a test moves it."""
 
-MAILPIT_API = f"http://localhost:{os.environ.get('MAILPIT_WEB_PORT', '8025')}/api/v1"
+MAILPIT_API_URL = f"http://localhost:{os.environ.get('MAILPIT_WEB_PORT', '8025')}/api/v1"
 """Mailpit's HTTP API, which lists the emails the SMTP server received."""
 
 
@@ -64,9 +64,9 @@ def auth_settings(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 @pytest.fixture
 def utc_now(mocker: MockerFixture) -> MockType:
-    """Stub the current time at `T0`; a test moves it by setting `utc_now.return_value`."""
+    """Stub the current time at `STUBBED_START_TIME`; a test moves it through `return_value`."""
     utc_now = mocker.stub(name="utc_now")
-    utc_now.return_value = T0
+    utc_now.return_value = STUBBED_START_TIME
     return utc_now
 
 
@@ -80,40 +80,40 @@ def client(auth_settings: None, utc_now: MockType) -> Iterator[TestClient]:
 
 
 @pytest.fixture
-def database(auth_settings: None) -> Iterator[Engine]:
+def database_engine(auth_settings: None) -> Iterator[Engine]:
     """Connect to the application's database, to arrange and read rows directly."""
-    engine = create_engine(get_settings().database_url, poolclass=NullPool)
+    engine = create_engine(get_app_settings().database_url, poolclass=NullPool)
     yield engine
     engine.dispose()
 
 
 @pytest.fixture
-def new_mailbox(database: Engine) -> Iterator[Callable[[], str]]:
+def new_mailbox_address(database_engine: Engine) -> Iterator[Callable[[], str]]:
     """Hand out unique addresses, and delete their accounts and Mailpit emails afterwards."""
     addresses: list[str] = []
 
-    def create() -> str:
+    def create_mailbox_address() -> str:
         """Create a new unique address."""
         addresses.append(f"jane.{uuid4().hex}@example.com")
         return addresses[-1]
 
-    yield create
-    with database.begin() as connection:
+    yield create_mailbox_address
+    with database_engine.begin() as connection:
         # Deleting a user keeps its events with a null user, so they go first.
         user_ids = select(UserTable.id).where(UserTable.email_normalized.in_(addresses))
         connection.execute(delete(AuthEventTable).where(AuthEventTable.user_id.in_(user_ids)))
         connection.execute(delete(UserTable).where(UserTable.email_normalized.in_(addresses)))
     for address in addresses:
-        httpx2.delete(f"{MAILPIT_API}/search", params={"query": f'to:"{address}"'})
+        httpx2.delete(f"{MAILPIT_API_URL}/search", params={"query": f'to:"{address}"'})
 
 
 @pytest.fixture
-def mailbox(new_mailbox: Callable[[], str]) -> str:
+def mailbox_address(new_mailbox_address: Callable[[], str]) -> str:
     """Hand out one unique address, cleaned up after the test."""
-    return new_mailbox()
+    return new_mailbox_address()
 
 
-def _sign_up(
+def _post_sign_up(
     client: TestClient, email: str, *, first_name: str = "Jane", password: str = "first password"
 ) -> httpx2.Response:
     """Submit a sign-up for an email, with a chosen first name and password."""
@@ -123,39 +123,41 @@ def _sign_up(
     )
 
 
-def _emails_to(address: str, count: int) -> list[dict[str, Any]]:
+def _wait_for_emails_to(address: str, count: int) -> list[dict[str, Any]]:
     """Wait until Mailpit holds `count` emails to an address, and return them oldest first."""
     deadline = time.monotonic() + 5
     while True:
-        found = httpx2.get(f"{MAILPIT_API}/search", params={"query": f'to:"{address}"'}).json()
-        if found["messages_count"] >= count or time.monotonic() > deadline:
+        search_result = httpx2.get(
+            f"{MAILPIT_API_URL}/search", params={"query": f'to:"{address}"'}
+        ).json()
+        if search_result["messages_count"] >= count or time.monotonic() > deadline:
             break
         time.sleep(0.05)
     # Mailpit lists the newest message first.
     return [
-        httpx2.get(f"{MAILPIT_API}/message/{summary['ID']}").json()
-        for summary in reversed(found["messages"])
+        httpx2.get(f"{MAILPIT_API_URL}/message/{summary['ID']}").json()
+        for summary in reversed(search_result["messages"])
     ]
 
 
-def _code_in(email: dict[str, Any]) -> str:
+def _read_verification_code_in(email: dict[str, Any]) -> str:
     """Read the 6-digit verification code from an email's text."""
     match = re.search(r"\b(\d{6})\b", str(email["Text"]))
     assert match is not None, "the email holds no 6-digit code"
     return str(match[1])
 
 
-def _user(database: Engine, address: str) -> Any:
+def _read_user_row(database_engine: Engine, address: str) -> Any:
     """Read the `users` row of a normalized email."""
-    with database.connect() as connection:
+    with database_engine.connect() as connection:
         return connection.execute(
             select(UserTable).where(UserTable.email_normalized == address)
         ).one()
 
 
-def _password_hash(database: Engine, user_id: UUID) -> str:
+def _read_password_hash(database_engine: Engine, user_id: UUID) -> str:
     """Read the stored password hash of a user."""
-    with database.connect() as connection:
+    with database_engine.connect() as connection:
         return connection.execute(
             select(PasswordCredentialTable.password_hash).where(
                 PasswordCredentialTable.user_id == user_id
@@ -163,9 +165,9 @@ def _password_hash(database: Engine, user_id: UUID) -> str:
         ).scalar_one()
 
 
-def _challenges(database: Engine, user_id: UUID) -> list[Any]:
+def _read_email_challenge_rows(database_engine: Engine, user_id: UUID) -> list[Any]:
     """Read every `email_challenges` row of a user."""
-    with database.connect() as connection:
+    with database_engine.connect() as connection:
         return list(
             connection.execute(
                 select(EmailChallengeTable).where(EmailChallengeTable.user_id == user_id)
@@ -173,22 +175,22 @@ def _challenges(database: Engine, user_id: UUID) -> list[Any]:
         )
 
 
-def _insert_verified_user(database: Engine, address: str) -> None:
+def _insert_verified_user(database_engine: Engine, address: str) -> None:
     """Store a verified account for an address, as if its owner confirmed a code."""
-    with database.begin() as connection:
+    with database_engine.begin() as connection:
         connection.execute(
             insert(UserTable).values(
                 {
                     UserTable.email: address,
                     UserTable.email_normalized: address,
-                    UserTable.email_verified_at: T0,
+                    UserTable.email_verified_at: STUBBED_START_TIME,
                     UserTable.first_name: "Jane",
                     UserTable.last_name: "Doe",
                     UserTable.role: "user",
                     UserTable.terms_version: "2026-01-01",
-                    UserTable.terms_accepted_at: T0,
-                    UserTable.created_at: T0,
-                    UserTable.updated_at: T0,
+                    UserTable.terms_accepted_at: STUBBED_START_TIME,
+                    UserTable.created_at: STUBBED_START_TIME,
+                    UserTable.updated_at: STUBBED_START_TIME,
                 }
             )
         )
@@ -200,45 +202,47 @@ def _hash_verification_code(code: str) -> bytes:
 
 
 def test_a_new_email_stores_an_unverified_account_and_mails_its_code(
-    client: TestClient, database: Engine, mailbox: str
+    client: TestClient, database_engine: Engine, mailbox_address: str
 ) -> None:
     # Given: an email no account uses.
-    typed = mailbox.replace("jane.", "Jane.")
+    typed_address = mailbox_address.replace("jane.", "Jane.")
 
     # When: a person signs up with it.
-    response = _sign_up(client, typed)
+    response = _post_sign_up(client, typed_address)
 
     # Then: the API accepts with an empty body.
     assert (response.status_code, response.content) == (202, b"")
     # And: an unverified account keeps the typed email and the configured terms.
-    user = _user(database, mailbox)
-    assert (user.email, user.email_verified_at) == (typed, None)
+    user = _read_user_row(database_engine, mailbox_address)
+    assert (user.email, user.email_verified_at) == (typed_address, None)
     assert (user.first_name, user.last_name) == ("Jane", "Doe")
-    assert (user.terms_version, user.terms_accepted_at) == (TERMS_VERSION, T0)
+    assert (user.terms_version, user.terms_accepted_at) == (TERMS_VERSION, STUBBED_START_TIME)
     # And: the password is stored only as an Argon2id hash that verifies it.
-    password_hash = _password_hash(database, user.id)
+    password_hash = _read_password_hash(database_engine, user.id)
     assert password_hash.startswith("$argon2id$")
     assert PasswordHash.recommended().verify("first password", password_hash)
     # And: Mailpit receives the code, and the one open challenge holds only its
     # keyed hash, valid for the configured lifetime.
-    [email] = _emails_to(mailbox, 1)
-    [challenge] = _challenges(database, user.id)
+    [email] = _wait_for_emails_to(mailbox_address, 1)
+    [challenge] = _read_email_challenge_rows(database_engine, user.id)
     assert challenge.purpose == "verify_email"
-    assert challenge.secret_hash == _hash_verification_code(_code_in(email))
+    assert challenge.secret_hash == _hash_verification_code(_read_verification_code_in(email))
     assert challenge.expires_at - challenge.created_at == timedelta(minutes=10)
 
 
 def test_a_verified_email_answers_like_a_new_one_changes_nothing_and_mails_a_notice(
-    client: TestClient, database: Engine, new_mailbox: Callable[[], str]
+    client: TestClient, database_engine: Engine, new_mailbox_address: Callable[[], str]
 ) -> None:
     # Given: a verified account, and the answer a brand-new email gets.
-    mailbox = new_mailbox()
-    _insert_verified_user(database, mailbox)
-    before = _user(database, mailbox)
-    new_email_response = _sign_up(client, new_mailbox())
+    mailbox_address = new_mailbox_address()
+    _insert_verified_user(database_engine, mailbox_address)
+    user_before_sign_up = _read_user_row(database_engine, mailbox_address)
+    new_email_response = _post_sign_up(client, new_mailbox_address())
 
     # When: someone signs up with the verified account's email.
-    response = _sign_up(client, mailbox, first_name="Mallory", password="second password")
+    response = _post_sign_up(
+        client, mailbox_address, first_name="Mallory", password="second password"
+    )
 
     # Then: the answer is indistinguishable from the new email's.
     assert (response.status_code, response.headers, response.content) == (
@@ -247,51 +251,57 @@ def test_a_verified_email_answers_like_a_new_one_changes_nothing_and_mails_a_not
         new_email_response.content,
     )
     # And: the account is unchanged and gained no password or code.
-    assert _user(database, mailbox) == before
-    assert _challenges(database, before.id) == []
-    with database.connect() as connection:
-        credential = connection.scalar(
+    assert _read_user_row(database_engine, mailbox_address) == user_before_sign_up
+    assert _read_email_challenge_rows(database_engine, user_before_sign_up.id) == []
+    with database_engine.connect() as connection:
+        credential_user_id = connection.scalar(
             select(PasswordCredentialTable.user_id).where(
-                PasswordCredentialTable.user_id == before.id
+                PasswordCredentialTable.user_id == user_before_sign_up.id
             )
         )
-    assert credential is None
+    assert credential_user_id is None
     # And: the owner is told that someone tried to sign up.
-    [email] = _emails_to(mailbox, 1)
+    [email] = _wait_for_emails_to(mailbox_address, 1)
     assert email["Subject"] == "You already have a JSV account"
 
 
 def test_an_unverified_email_after_the_send_interval_takes_the_new_password_name_and_code(
-    client: TestClient, database: Engine, utc_now: MockType, mailbox: str
+    client: TestClient, database_engine: Engine, utc_now: MockType, mailbox_address: str
 ) -> None:
     # Given: an unverified account whose code was mailed an hour ago.
-    _sign_up(client, mailbox)
-    utc_now.return_value = T0 + timedelta(hours=1)
+    _post_sign_up(client, mailbox_address)
+    utc_now.return_value = STUBBED_START_TIME + timedelta(hours=1)
 
     # When: someone signs up again with that email.
-    response = _sign_up(client, mailbox, first_name="Janet", password="second password")
+    response = _post_sign_up(
+        client, mailbox_address, first_name="Janet", password="second password"
+    )
 
     # Then: the answer is the same empty 202.
     assert (response.status_code, response.content) == (202, b"")
     # And: the latest name and password replace the first ones.
-    user = _user(database, mailbox)
+    user = _read_user_row(database_engine, mailbox_address)
     assert user.first_name == "Janet"
-    assert PasswordHash.recommended().verify("second password", _password_hash(database, user.id))
+    assert PasswordHash.recommended().verify(
+        "second password", _read_password_hash(database_engine, user.id)
+    )
     # And: only the second mailed code has a challenge.
-    first_email, second_email = _emails_to(mailbox, 2)
-    [challenge] = _challenges(database, user.id)
-    assert challenge.secret_hash == _hash_verification_code(_code_in(second_email))
-    assert _code_in(first_email) != _code_in(second_email)
+    first_email, second_email = _wait_for_emails_to(mailbox_address, 2)
+    [challenge] = _read_email_challenge_rows(database_engine, user.id)
+    assert challenge.secret_hash == _hash_verification_code(
+        _read_verification_code_in(second_email)
+    )
+    assert _read_verification_code_in(first_email) != _read_verification_code_in(second_email)
 
 
 def test_a_password_outside_the_policy_answers_password_too_weak_as_a_problem(
-    client: TestClient, mailbox: str
+    client: TestClient, mailbox_address: str
 ) -> None:
     # Given: a password too short for the policy.
     too_short = "x" * 11
 
     # When: a person signs up with it.
-    response = _sign_up(client, mailbox, password=too_short)
+    response = _post_sign_up(client, mailbox_address, password=too_short)
 
     # Then: the answer is an RFC 9457 problem with the stable code and a
     # human-readable detail.
@@ -330,24 +340,28 @@ def test_invalid_input_answers_invalid_input_as_a_problem_without_echoing_the_pa
 
 
 def test_a_sign_up_logs_no_password_code_or_email(
-    client: TestClient, mailbox: str, caplog: pytest.LogCaptureFixture
+    client: TestClient, mailbox_address: str, caplog: pytest.LogCaptureFixture
 ) -> None:
     # Given: every logger records at DEBUG.
     caplog.set_level(logging.DEBUG)
 
     # When: a person signs up and is mailed a code.
-    _sign_up(client, mailbox, password="a logged password?")
-    [email] = _emails_to(mailbox, 1)
+    _post_sign_up(client, mailbox_address, password="a logged password?")
+    [email] = _wait_for_emails_to(mailbox_address, 1)
 
     # Then: no record holds the password, the code, or the address.
-    logged = "\n".join(record.getMessage() for record in caplog.records)
+    logged_text = "\n".join(record.getMessage() for record in caplog.records)
     assert caplog.records, "the sign-up logged nothing, so the check proves nothing"
-    for secret in ("a logged password?", _code_in(email), mailbox):
-        assert secret not in logged
+    for sensitive_value in (
+        "a logged password?",
+        _read_verification_code_in(email),
+        mailbox_address,
+    ):
+        assert sensitive_value not in logged_text
 
 
 def test_an_accepted_sign_up_answers_no_sooner_than_the_minimum_response_time(
-    monkeypatch: pytest.MonkeyPatch, mailbox: str
+    monkeypatch: pytest.MonkeyPatch, mailbox_address: str
 ) -> None:
     # Given: a minimum response time far above what a sign-up needs.
     monkeypatch.setenv("JSF_AUTH_SIGN_UP_MIN_RESPONSE_TIME", "PT0.3S")
@@ -356,7 +370,7 @@ def test_an_accepted_sign_up_answers_no_sooner_than_the_minimum_response_time(
     # When: someone signs up.
     with TestClient(create_app()) as client:
         started = time.monotonic()
-        response = _sign_up(client, mailbox)
+        response = _post_sign_up(client, mailbox_address)
         elapsed = time.monotonic() - started
 
     # Then: the answer waits for the minimum.

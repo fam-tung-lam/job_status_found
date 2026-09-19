@@ -4,7 +4,7 @@ import anyio.to_thread
 from anyio import CapacityLimiter
 from pwdlib import PasswordHash
 
-_PASSWORD_HASH = PasswordHash.recommended()
+_ARGON2ID_PASSWORD_HASHER = PasswordHash.recommended()
 """`pwdlib`'s recommended Argon2id hasher, which uses 64 MiB per hash."""
 
 
@@ -22,4 +22,4 @@ async def hash_password(password: str, *, limiter: CapacityLimiter) -> str:
     Returns:
         The Argon2id PHC string, including its salt and parameters.
     """
-    return await anyio.to_thread.run_sync(_PASSWORD_HASH.hash, password, limiter=limiter)
+    return await anyio.to_thread.run_sync(_ARGON2ID_PASSWORD_HASHER.hash, password, limiter=limiter)

@@ -10,5 +10,5 @@ abstract interface class HealthRepository() {
   /// Completes normally when the backend is healthy. Throws a
   /// [HealthCheckFailure] when the backend is unreachable or answers with
   /// something this app does not understand.
-  Future<void> check();
+  Future<void> checkBackendHealth();
 }

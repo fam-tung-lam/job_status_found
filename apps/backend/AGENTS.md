@@ -27,6 +27,23 @@
 - Docstrings are read in code and IDE hovers only; there is no generated
   documentation site.
 
+## Naming
+
+- Names follow the root naming rules. A repository port method names its
+  entity and effect, such as `set_password_hash` or
+  `replace_open_email_challenge`, never a bare `save` or `record`. A method
+  that returns `None` when no row matches starts with `find_`, or with
+  `lock_` when it also locks the row.
+- An exception message built before the `raise` goes in a variable named
+  `error_message`, not `msg`.
+- A repository method that reads or writes user data takes `owner_id`, per
+  §8 rule 3 of the auth specification. Keep that name even where `user_id`
+  reads more naturally.
+- Keep the names a library requires or its documentation uses throughout,
+  such as FastAPI's `lifespan`, SQLAlchemy's `Base`, Alembic's
+  `run_migrations_online`, and Pydantic's `model_config`. Keep the wire
+  fields of `InvalidInputError` too: `loc`, `msg`, and `type`.
+
 ## Structure
 
 - `src/job_status_found/app/` holds only composition: the composition root
@@ -47,13 +64,14 @@
     `ProblemDetailsFastAPI`, which documents them);
   - clients for external systems that several features use, in
     `infrastructure/clients/`, one per system, such as
-    `SmtpEmailSenderClient` with a general `send(recipient, subject, body)`
-    that raises `EmailDeliveryFailure`. The client knows transport, never
-    content: a feature's own adapter, such as auth's `SmtpAuthEmailSender`,
-    writes its emails, sends them through the client from
+    `SmtpEmailSenderClient` with a general
+    `send_plain_text_email(recipient, subject, body)` that raises
+    `EmailDeliveryFailure`. The client knows transport, never content: a
+    feature's own adapter, such as auth's `SmtpAuthEmailSender`, writes its
+    emails, sends them through the client from
     `get_smtp_email_sender_client`, and decides what a failure means;
   - `app_settings.py` with `AppSettings` (`JSF_*`) and the cached
-    `get_settings()`: every application-wide value, such as the service
+    `get_app_settings()`: every application-wide value, such as the service
     name, CORS, the database (`JSF_DATABASE_*`), and the shared clients, such
     as the SMTP server (`JSF_SMTP_*`). A migration run loads it, so each of
     its values has a default or comes from `.env`;

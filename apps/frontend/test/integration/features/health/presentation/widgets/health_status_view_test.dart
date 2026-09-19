@@ -33,13 +33,14 @@ void main() {
       tester,
     ) async {
       // Given: a backend that answers ok once the test releases it.
-      final answer = Completer<Object?>();
-      when(() => httpClient.get('/health')).thenAnswer((_) => answer.future);
+      final healthResponse = Completer<Object?>();
+      when(() => httpClient.get('/health'))
+          .thenAnswer((_) => healthResponse.future);
       await tester.pumpApp(view);
       expect(find.text('Checking the backend…'), findsOneWidget);
 
       // When: the backend answers.
-      answer.complete({'status': 'ok'});
+      healthResponse.complete({'status': 'ok'});
       await tester.pump();
 
       // Then: the view says the backend is healthy.
@@ -51,12 +52,12 @@ void main() {
       tester,
     ) async {
       // Given: a backend that is down for the first check and up afterwards.
-      final answers = <Future<Object?> Function()>[
+      final healthResponses = <Future<Object?> Function()>[
         () async => throw JobStatusFoundHttpClientConnectionFailed(_healthUrl),
         () async => {'status': 'ok'},
       ];
       when(() => httpClient.get('/health'))
-          .thenAnswer((_) => answers.removeAt(0)());
+          .thenAnswer((_) => healthResponses.removeAt(0)());
       await tester.pumpApp(view);
       await tester.pump();
       expect(

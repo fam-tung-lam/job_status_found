@@ -11,25 +11,25 @@ from job_status_found.features.auth.infrastructure.helpers.hash_password import 
 async def test_the_event_loop_keeps_serving_while_a_password_hashes() -> None:
     # Given: a limiter, and a task that counts event-loop turns.
     limiter = CapacityLimiter(1)
-    turns = 0
-    hashed = anyio.Event()
+    event_loop_turns = 0
+    hash_finished = anyio.Event()
 
     async def count_turns() -> None:
         """Count event-loop turns until the hash is done."""
-        nonlocal turns
-        while not hashed.is_set():
-            turns += 1
+        nonlocal event_loop_turns
+        while not hash_finished.is_set():
+            event_loop_turns += 1
             await anyio.sleep(0.001)
 
     # When: a password hashes beside that task.
     async with anyio.create_task_group() as task_group:
         task_group.start_soon(count_turns)
         await hash_password("a password to hash", limiter=limiter)
-        hashed.set()
+        hash_finished.set()
 
     # Then: the loop turned many times during the tens of milliseconds a hash
     # takes, so the hash ran off the loop.
-    assert turns > 5
+    assert event_loop_turns > 5
 
 
 async def test_hashes_beyond_the_limit_wait_for_a_free_slot() -> None:

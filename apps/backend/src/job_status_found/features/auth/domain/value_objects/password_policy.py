@@ -19,7 +19,7 @@ class PasswordPolicy:
     max_length: int = MAX_PASSWORD_LENGTH
     """Most Unicode code points a new password may have."""
 
-    def validate(self, password: str) -> bool:
+    def is_length_allowed(self, password: str) -> bool:
         """Tell whether a password is long enough and not too long.
 
         Python's `len` counts code points, not bytes, so an accented letter or

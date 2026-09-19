@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 class SmtpAuthEmailSender:
     """`AuthEmailSender` that writes auth emails and delivers them through the SMTP client."""
 
-    def __init__(self, client: SmtpEmailSenderClient) -> None:
+    def __init__(self, smtp_client: SmtpEmailSenderClient) -> None:
         """Deliver through the shared SMTP client.
 
         Args:
-            client: The client that sends each email.
+            smtp_client: The client that sends each email.
         """
-        self._client = client
+        self._smtp_client = smtp_client
 
     async def send_verification_code(self, recipient: str, code: str, valid_for: timedelta) -> None:
         """Send a code that proves control of the recipient's mailbox.
@@ -28,7 +28,7 @@ class SmtpAuthEmailSender:
             valid_for: How long the code works, stated in the email.
         """
         minutes = round(valid_for.total_seconds() / 60)
-        await self._send(
+        await self._send_or_log_failure(
             "verification code",
             recipient,
             subject=f"{code} is your JSV verification code",
@@ -46,7 +46,7 @@ class SmtpAuthEmailSender:
         Args:
             recipient: The address of the existing account.
         """
-        await self._send(
+        await self._send_or_log_failure(
             "existing-account notice",
             recipient,
             subject="You already have a JSV account",
@@ -60,18 +60,22 @@ class SmtpAuthEmailSender:
             ),
         )
 
-    async def _send(self, kind: str, recipient: str, *, subject: str, body: str) -> None:
+    async def _send_or_log_failure(
+        self, email_kind: str, recipient: str, *, subject: str, body: str
+    ) -> None:
         """Deliver one auth email, logging a failed delivery instead of raising it.
 
         Args:
-            kind: What the email is, such as `verification code`, for the log.
+            email_kind: What the email is, such as `verification code`, for the log.
             recipient: The address to deliver to.
             subject: The subject line.
             body: The plain-text body.
         """
         try:
-            await self._client.send(recipient=recipient, subject=subject, body=body)
+            await self._smtp_client.send_plain_text_email(
+                recipient=recipient, subject=subject, body=body
+            )
         except EmailDeliveryFailure as failure:
             # The person asks for a new email instead; the failure names no
             # recipient, and its traceback could, so it is not logged.
-            logger.error("Could not send the %s email: %s", kind, failure)
+            logger.error("Could not send the %s email: %s", email_kind, failure)

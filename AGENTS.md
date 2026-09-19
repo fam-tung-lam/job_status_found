@@ -145,17 +145,49 @@ Expand an alias only when the entire user message is that alias:
 
 - Names are specific and understandable on their own. A reader should know
   what a type holds or does without opening it.
-- Prefer a long, specific name over a short, generic one. Name a type,
-  method, and parameter after the domain value it handles, such as a
-  verification code, a reset link token, or a refresh token, and after what it
-  does to that value. `generate_verification_code()` and
+- Prefer an explicit name over a concise one, even when it is long or wraps a
+  line. Name a type, method, and parameter after the domain value it handles,
+  such as a verification code, a reset link token, or a refresh token, and
+  after what it does to that value. `generate_verification_code()` and
   `hash_verification_code(code)` beat `new_secret()` and
   `keyed_hash(secret)`.
+- A method name tells the caller everything the call does:
+  - the entity it acts on, even when the class name implies it, so a call site
+    reads on its own: `users.lock_user_by_normalized_email(email)`, not
+    `users.lock_by_normalized_email(email)`;
+  - the condition under which it does nothing or returns nothing:
+    `create_unverified_user_unless_email_taken`, not `add_unverified`;
+  - the fields it writes when it writes only some:
+    `replace_name_and_accepted_terms`, not `update_registration`.
+- Use the precise verb, never a generic one such as `save`, `record`,
+  `update`, `handle`, `process`, or `check` alone. `create`, `replace`, `set`,
+  `lock`, `issue`, and `find` each say more. A `find_` method returns nothing
+  when no row matches.
+- A function or property that answers yes or no reads as a question, such as
+  `is_length_allowed` or `has_send_interval_passed_since`, never `validate`.
+  So does a boolean variable, such as `should_send_notice`.
+- A constant names its role and unit, such as
+  `_MAX_CONCURRENT_PASSWORD_HASHES` or `_SET_LOCK_TIMEOUT_SQL`. Never let a
+  name read as a different kind of value: `_PASSWORD_HASH` for a hasher reads
+  as a hash.
+- Do not abbreviate: `error_message`, not `msg`; `FeatureScope`, not
+  `FeatScope`; `log_record`, not `r`. Established acronyms such as `id`,
+  `url`, `http`, `smtp`, `hmac`, and `dto`, and the design system's size scale
+  (`xs` to `xl`), stay.
 - Never use a word that suggests something else. `secret` for a code or token
-  reads as a password or key. Generic words such as `data`, `info`, `manager`,
-  `helper`, `util`, or `common` say nothing about what the code does. The
-  `helpers/` folder is the one exception: it names a role, and each file in it
-  is named after its one function.
+  reads as a password or key. Generic words such as `data`, `info`, `value`,
+  `kind`, `item`, `manager`, `helper`, `util`, or `common` say nothing about
+  what the code does. The `helpers/` folder is the one exception: it names a
+  role, and each file in it is named after its one function.
+- An outside contract fixes some names: wire fields and failure codes, database
+  columns, environment variables, and names a framework requires or its
+  documentation uses throughout, such as `lifespan`, `build`, or SQLAlchemy's
+  `Base`. Keep them until that contract changes on purpose.
+- Keep a name that the whole ecosystem uses for the same operation, such as an
+  HTTP client's `get` and `post`, named after the HTTP method they send.
+- Test code follows the same rules. A test helper starts with its verb, such as
+  `_read_user_row` or `_wait_for_emails_to`. A fixture names what it provides,
+  such as `database_engine` or `mailbox_address`.
 - A helper function starts with its verb, such as `hash_password`, and its
   file is named after it, such as `hash_password.py`.
 - One type or function does one job. Split one that does two, even for the

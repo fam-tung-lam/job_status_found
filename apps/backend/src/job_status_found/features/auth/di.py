@@ -54,7 +54,7 @@ from job_status_found.features.core import (
     get_utc_now,
 )
 
-_CONCURRENT_PASSWORD_HASHES = 4
+_MAX_CONCURRENT_PASSWORD_HASHES = 4
 """Most Argon2id hashes that run at once; four at 64 MiB each fit the 512 MiB container."""
 
 
@@ -73,7 +73,7 @@ async def open_auth(app: FastAPI) -> AsyncIterator[None]:
         Control while the application serves requests.
     """
     get_auth_settings()
-    app.state.password_hash_limiter = CapacityLimiter(_CONCURRENT_PASSWORD_HASHES)
+    app.state.password_hash_limiter = CapacityLimiter(_MAX_CONCURRENT_PASSWORD_HASHES)
     try:
         yield
     finally:
@@ -92,11 +92,13 @@ async def get_hash_password(request: Request) -> Callable[[str], Awaitable[str]]
     Raises:
         RuntimeError: The application serves requests outside its lifespan.
     """
-    limiter = getattr(request.app.state, "password_hash_limiter", None)
-    if not isinstance(limiter, CapacityLimiter):
-        msg = "No password-hash limiter is open; the application's lifespan opens it first."
-        raise RuntimeError(msg)
-    return partial(hash_password, limiter=limiter)
+    password_hash_limiter = getattr(request.app.state, "password_hash_limiter", None)
+    if not isinstance(password_hash_limiter, CapacityLimiter):
+        error_message = (
+            "No password-hash limiter is open; the application's lifespan opens it first."
+        )
+        raise RuntimeError(error_message)
+    return partial(hash_password, limiter=password_hash_limiter)
 
 
 async def get_sign_up_min_response_time(

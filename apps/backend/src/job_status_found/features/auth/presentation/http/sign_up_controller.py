@@ -17,7 +17,7 @@ from job_status_found.features.auth.di import (
 from job_status_found.features.auth.presentation.http.schemas.sign_up_request import (
     SignUpRequest,
 )
-from job_status_found.features.core import problem_details_content
+from job_status_found.features.core import problem_details_openapi_content
 
 router = APIRouter()
 
@@ -39,12 +39,12 @@ router = APIRouter()
         status.HTTP_400_BAD_REQUEST: {
             "description": "`password_too_weak`: the password is shorter than the configured "
             "minimum (12 by default) or longer than 128 characters.",
-            "content": problem_details_content(),
+            "content": problem_details_openapi_content(),
         },
     },
 )
 async def sign_up(
-    body: SignUpRequest,
+    sign_up_request: SignUpRequest,
     sign_up_with_password: Annotated[
         SignUpWithPasswordUseCase, Depends(get_sign_up_with_password_use_case)
     ],
@@ -57,21 +57,21 @@ async def sign_up(
     reveals which emails have accounts. The email goes out after the response.
 
     Args:
-        body: The submitted names, email, and password.
+        sign_up_request: The submitted names, email, and password.
         sign_up_with_password: The sign-up use case.
         min_response_time: The shortest time an accepted sign-up takes to answer.
 
     Returns:
         An empty 202 response.
     """
-    answer_at = anyio.current_time() + min_response_time.total_seconds()
+    earliest_response_at = anyio.current_time() + min_response_time.total_seconds()
     await sign_up_with_password.invoke(
         SignUpInput(
-            first_name=body.first_name,
-            last_name=body.last_name,
-            email=body.email,
-            password=body.password,
+            first_name=sign_up_request.first_name,
+            last_name=sign_up_request.last_name,
+            email=sign_up_request.email,
+            password=sign_up_request.password,
         )
     )
-    await anyio.sleep_until(answer_at)
+    await anyio.sleep_until(earliest_response_at)
     return Response(status_code=status.HTTP_202_ACCEPTED)

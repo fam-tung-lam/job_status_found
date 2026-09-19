@@ -29,15 +29,17 @@ class const HealthStatusView({
         final cubit = HealthStatusCubit(checkHealthUseCase);
         // The cubit turns every expected failure into state and drops a late
         // result after close, so the view does not await the first check.
-        unawaited(cubit.check());
+        unawaited(cubit.checkBackendHealth());
         return cubit;
       },
       child: BlocBuilder<HealthStatusCubit, HealthStatusState>(
         builder: (context, state) => switch (state) {
           HealthStatusNotChecked() ||
-          HealthStatusChecking() => const _CheckInProgress(),
-          HealthStatusHealthy() => const _HealthyResult(),
-          HealthStatusCheckFailed(:final failure) => _FailureResult(failure),
+          HealthStatusChecking() => const _HealthCheckInProgress(),
+          HealthStatusHealthy() => const _HealthyCheckResult(),
+          HealthStatusCheckFailed(:final failure) => _FailedCheckResult(
+            failure,
+          ),
         },
       ),
     );
@@ -45,7 +47,7 @@ class const HealthStatusView({
 }
 
 /// A spinner with a message, shown while a check waits for the backend.
-class const _CheckInProgress() extends StatelessWidget {
+class const _HealthCheckInProgress() extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Row(
@@ -60,10 +62,10 @@ class const _CheckInProgress() extends StatelessWidget {
 }
 
 /// The result of a check that confirmed the backend is healthy.
-class const _HealthyResult() extends StatelessWidget {
+class const _HealthyCheckResult() extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return _CheckResult(
+    return _HealthCheckResultAlert(
       icon: Icons.check_circle_outline,
       variant: AppAlertVariant.success,
       message: AppStrings.of(context).health.statusHealthy,
@@ -72,7 +74,7 @@ class const _HealthyResult() extends StatelessWidget {
 }
 
 /// The result of a check that ended with a [HealthCheckFailure].
-class const _FailureResult(
+class const _FailedCheckResult(
   /// Why the check could not confirm the backend is healthy.
   final HealthCheckFailure failure,
 ) extends StatelessWidget {
@@ -80,12 +82,12 @@ class const _FailureResult(
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context).health;
     return switch (failure) {
-      HealthCheckBackendUnreachable() => _CheckResult(
+      HealthCheckBackendUnreachable() => _HealthCheckResultAlert(
         icon: Icons.cloud_off_outlined,
         variant: AppAlertVariant.error,
         message: strings.statusUnreachable,
       ),
-      HealthCheckUnexpectedResponse() => _CheckResult(
+      HealthCheckUnexpectedResponse() => _HealthCheckResultAlert(
         icon: Icons.error_outline,
         variant: AppAlertVariant.error,
         message: strings.statusUnexpectedResponse,
@@ -96,7 +98,7 @@ class const _FailureResult(
 
 /// A finished check: an alert with an icon, a message, and a button that
 /// checks again through the [HealthStatusCubit] above it.
-class const _CheckResult({
+class const _HealthCheckResultAlert({
   /// The symbol for the outcome.
   required final IconData icon,
 
@@ -116,7 +118,8 @@ class const _CheckResult({
         label: AppStrings.of(context).health.checkAgainAction,
         variant: AppButtonVariant.outline,
         size: AppButtonSize.sm,
-        onPressed: () => unawaited(context.read<HealthStatusCubit>().check()),
+        onPressed: () =>
+            unawaited(context.read<HealthStatusCubit>().checkBackendHealth()),
       ),
     );
   }

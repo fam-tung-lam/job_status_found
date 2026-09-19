@@ -52,7 +52,7 @@ VERIFIED_USER = User(id=uuid4(), email="Jane.Doe@Example.com", email_verified_at
 """An account whose owner confirmed the email."""
 
 
-def _sign_up(password: str = "second password") -> SignUpInput:
+def _build_sign_up_input(password: str = "second password") -> SignUpInput:
     """Build a sign-up for the shared email, with a chosen password."""
     return SignUpInput(
         first_name="Janet", last_name="Doe", email="Jane.Doe@Example.com", password=password
@@ -108,25 +108,27 @@ class TestSignUpWithPasswordUseCase:
 
     def _stub_existing_user(self, user: User) -> None:
         """Stub the users repository so the submitted email already belongs to `user`."""
-        self.users.add_unverified.return_value = None
-        self.users.lock_by_normalized_email.return_value = user
+        self.users.create_unverified_user_unless_email_taken.return_value = None
+        self.users.lock_user_by_normalized_email.return_value = user
 
     async def test_the_code_is_mailed_only_after_the_writes_are_committed(
         self, mocker: MockerFixture
     ) -> None:
         # Given: no account exists, and one recorder that sees both the commit
         # and the email.
-        self.users.add_unverified.return_value = UNVERIFIED_USER
-        order = mocker.Mock()
-        order.attach_mock(self.unit_of_work.commit, "commit")
-        order.attach_mock(self.email_sender.send_verification_code, "send_verification_code")
+        self.users.create_unverified_user_unless_email_taken.return_value = UNVERIFIED_USER
+        call_order_recorder = mocker.Mock()
+        call_order_recorder.attach_mock(self.unit_of_work.commit, "commit")
+        call_order_recorder.attach_mock(
+            self.email_sender.send_verification_code, "send_verification_code"
+        )
 
         # When: a person signs up.
-        await self.use_case.invoke(_sign_up())
+        await self.use_case.invoke(_build_sign_up_input())
 
         # Then: the one email goes out after the one commit, so it never names a
         # code that a rolled-back transaction discarded.
-        assert order.mock_calls == [
+        assert call_order_recorder.mock_calls == [
             mocker.call.commit(),
             mocker.call.send_verification_code(UNVERIFIED_USER.email, "012345", CODE_LIFETIME),
         ]
@@ -137,17 +139,17 @@ class TestSignUpWithPasswordUseCase:
         # Given: an unverified account whose code was sent exactly one send
         # interval ago.
         self._stub_existing_user(UNVERIFIED_USER)
-        self.email_challenges.find_latest_created_at.return_value = NOW - SEND_INTERVAL
+        self.email_challenges.find_last_email_challenge_sent_at.return_value = NOW - SEND_INTERVAL
 
         # When: someone signs up again with that email.
-        await self.use_case.invoke(_sign_up())
+        await self.use_case.invoke(_build_sign_up_input())
 
         # Then: the new password replaces the first one, together with a new
         # code that replaces the open one and is mailed.
-        self.password_credentials.save.assert_awaited_once_with(
+        self.password_credentials.set_password_hash.assert_awaited_once_with(
             UNVERIFIED_USER.id, "hashed:second password", NOW
         )
-        self.email_challenges.replace_open.assert_awaited_once_with(
+        self.email_challenges.replace_open_email_challenge.assert_awaited_once_with(
             NewEmailChallenge(
                 owner_id=UNVERIFIED_USER.id,
                 purpose=EmailChallengePurpose.VERIFY_EMAIL,
@@ -166,56 +168,60 @@ class TestSignUpWithPasswordUseCase:
         # Given: an unverified account whose code was sent just under one send
         # interval ago.
         self._stub_existing_user(UNVERIFIED_USER)
-        self.email_challenges.find_latest_created_at.return_value = NOW - JUST_UNDER_THE_INTERVAL
+        self.email_challenges.find_last_email_challenge_sent_at.return_value = (
+            NOW - JUST_UNDER_THE_INTERVAL
+        )
 
         # When: someone signs up again with that email and another password.
-        await self.use_case.invoke(_sign_up())
+        await self.use_case.invoke(_build_sign_up_input())
 
         # Then: the account, its password, and its open code stay as they were,
         # so the owner can only confirm the password the code was mailed for.
-        self.users.update_registration.assert_not_awaited()
-        self.password_credentials.save.assert_not_awaited()
-        self.email_challenges.replace_open.assert_not_awaited()
+        self.users.replace_name_and_accepted_terms.assert_not_awaited()
+        self.password_credentials.set_password_hash.assert_not_awaited()
+        self.email_challenges.replace_open_email_challenge.assert_not_awaited()
         # And: no email goes out.
         self.email_sender.send_verification_code.assert_not_awaited()
 
     @pytest.mark.parametrize(
-        "last_notice_at",
+        "last_notice_sent_at",
         [None, NOW - SEND_INTERVAL],
         ids=["no-notice-yet", "notice-one-interval-ago"],
     )
     async def test_a_verified_email_gets_a_recorded_notice_once_the_interval_passed(
-        self, last_notice_at: datetime | None
+        self, last_notice_sent_at: datetime | None
     ) -> None:
         # Given: a verified account whose owner got no notice yet, or got one
         # exactly one send interval ago.
         self._stub_existing_user(VERIFIED_USER)
-        self.auth_events.find_latest_created_at.return_value = last_notice_at
+        self.auth_events.find_last_auth_event_occurred_at.return_value = last_notice_sent_at
 
         # When: someone signs up with its email.
-        await self.use_case.invoke(_sign_up())
+        await self.use_case.invoke(_build_sign_up_input())
 
         # Then: the owner gets a notice, recorded to pace the next one.
         self.email_sender.send_existing_account_notice.assert_awaited_once_with(VERIFIED_USER.email)
-        self.auth_events.record.assert_awaited_once_with(
+        self.auth_events.record_auth_event.assert_awaited_once_with(
             VERIFIED_USER.id, "existing_account_notice_sent", NOW
         )
         # And: the account itself never changes.
-        self.users.update_registration.assert_not_awaited()
-        self.password_credentials.save.assert_not_awaited()
+        self.users.replace_name_and_accepted_terms.assert_not_awaited()
+        self.password_credentials.set_password_hash.assert_not_awaited()
 
     async def test_a_verified_email_within_the_interval_gets_no_second_notice(self) -> None:
         # Given: a verified account whose owner got a notice just under one send
         # interval ago.
         self._stub_existing_user(VERIFIED_USER)
-        self.auth_events.find_latest_created_at.return_value = NOW - JUST_UNDER_THE_INTERVAL
+        self.auth_events.find_last_auth_event_occurred_at.return_value = (
+            NOW - JUST_UNDER_THE_INTERVAL
+        )
 
         # When: someone signs up with its email.
-        await self.use_case.invoke(_sign_up())
+        await self.use_case.invoke(_build_sign_up_input())
 
         # Then: no notice goes out and none is recorded.
         self.email_sender.send_existing_account_notice.assert_not_awaited()
-        self.auth_events.record.assert_not_awaited()
+        self.auth_events.record_auth_event.assert_not_awaited()
 
     async def test_a_password_outside_the_policy_is_refused_before_anything_is_stored_or_sent(
         self,
@@ -226,7 +232,7 @@ class TestSignUpWithPasswordUseCase:
         # When: a person signs up with it.
         # Then: the sign-up is refused before any hash, write, or email.
         with pytest.raises(SignUpPasswordTooWeak):
-            await self.use_case.invoke(_sign_up(password=too_short))
+            await self.use_case.invoke(_build_sign_up_input(password=too_short))
         self.hash_password.assert_not_awaited()
-        self.users.add_unverified.assert_not_awaited()
+        self.users.create_unverified_user_unless_email_taken.assert_not_awaited()
         self.email_sender.send_verification_code.assert_not_awaited()

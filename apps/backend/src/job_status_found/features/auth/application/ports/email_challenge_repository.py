@@ -15,7 +15,7 @@ from job_status_found.features.auth.domain.value_objects.email_challenge_purpose
 class EmailChallengeRepository(Protocol):
     """Reads and writes email challenges inside the caller's transaction."""
 
-    async def find_latest_created_at(
+    async def find_last_email_challenge_sent_at(
         self, owner_id: UUID, purpose: EmailChallengePurpose
     ) -> datetime | None:
         """Find when the user was last sent a challenge of a purpose.
@@ -31,7 +31,7 @@ class EmailChallengeRepository(Protocol):
         """
         ...
 
-    async def replace_open(self, challenge: NewEmailChallenge) -> None:
+    async def replace_open_email_challenge(self, challenge: NewEmailChallenge) -> None:
         """Store a challenge and delete the user's open one of the same purpose.
 
         Afterwards only the new challenge's code or link works.

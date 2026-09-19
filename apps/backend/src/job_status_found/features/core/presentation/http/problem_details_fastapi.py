@@ -6,8 +6,8 @@ from fastapi import FastAPI
 from pydantic.json_schema import models_json_schema
 
 from job_status_found.features.core.presentation.http.problem_details_responses import (
-    SCHEMA_REF_TEMPLATE,
-    problem_details_content,
+    OPENAPI_SCHEMA_REF_TEMPLATE,
+    problem_details_openapi_content,
 )
 from job_status_found.features.core.presentation.http.schemas.invalid_input_problem_details import (
     InvalidInputProblemDetails,
@@ -34,7 +34,7 @@ class ProblemDetailsFastAPI(FastAPI):
         document = super().openapi()
         _, definitions = models_json_schema(
             [(ProblemDetails, "serialization"), (InvalidInputProblemDetails, "serialization")],
-            ref_template=SCHEMA_REF_TEMPLATE,
+            ref_template=OPENAPI_SCHEMA_REF_TEMPLATE,
         )
         schemas: dict[str, Any] = document.setdefault("components", {}).setdefault("schemas", {})
         schemas.update(definitions["$defs"])
@@ -45,6 +45,6 @@ class ProblemDetailsFastAPI(FastAPI):
                 if "422" in operation.get("responses", {}):
                     operation["responses"]["422"] = {
                         "description": "`invalid_input`: a field is missing or malformed.",
-                        "content": problem_details_content(InvalidInputProblemDetails),
+                        "content": problem_details_openapi_content(InvalidInputProblemDetails),
                     }
         return document

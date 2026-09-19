@@ -10,7 +10,9 @@ from job_status_found.features.auth.domain.entities.user import User
 class UserRepository(Protocol):
     """Reads and writes accounts inside the caller's transaction."""
 
-    async def add_unverified(self, registration: UserRegistration) -> User | None:
+    async def create_unverified_user_unless_email_taken(
+        self, registration: UserRegistration
+    ) -> User | None:
         """Create an unverified account unless its normalized email already has one.
 
         Args:
@@ -22,7 +24,7 @@ class UserRepository(Protocol):
         """
         ...
 
-    async def lock_by_normalized_email(self, email_normalized: str) -> User | None:
+    async def lock_user_by_normalized_email(self, email_normalized: str) -> User | None:
         """Find the account of a normalized email and lock it until the transaction ends.
 
         Args:
@@ -33,7 +35,9 @@ class UserRepository(Protocol):
         """
         ...
 
-    async def update_registration(self, owner_id: UUID, registration: UserRegistration) -> None:
+    async def replace_name_and_accepted_terms(
+        self, owner_id: UUID, registration: UserRegistration
+    ) -> None:
         """Replace an account's name and accepted terms with those of a later sign-up.
 
         Args:

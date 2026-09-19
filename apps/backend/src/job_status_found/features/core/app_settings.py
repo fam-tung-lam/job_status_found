@@ -86,11 +86,13 @@ class AppSettings(BaseSettings):
         `_DATABASE_CONNECT_TIMEOUT_SECONDS`, instead of psycopg's default of
         130 seconds.
         """
-        password = self.database_password
+        database_password = self.database_password
         return URL.create(
             drivername="postgresql+psycopg",
             username=self.database_user,
-            password=password.get_secret_value() if password is not None else None,
+            password=database_password.get_secret_value()
+            if database_password is not None
+            else None,
             host=self.database_host,
             port=self.database_port,
             database=self.database_name,
@@ -111,13 +113,13 @@ class AppSettings(BaseSettings):
         if self.smtp_security == "none" and (
             self.smtp_username is not None or self.smtp_password is not None
         ):
-            msg = "smtp_security `none` would send the SMTP credentials in the clear."
-            raise ValueError(msg)
+            error_message = "smtp_security `none` would send the SMTP credentials in the clear."
+            raise ValueError(error_message)
         return self
 
 
 @lru_cache
-def get_settings() -> AppSettings:
+def get_app_settings() -> AppSettings:
     """Return the process-wide settings, reading the environment on first call.
 
     Returns:

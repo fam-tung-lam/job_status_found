@@ -83,12 +83,18 @@ Localization rules:
 ## Code
 
 - Each feature that registers dependencies has `lib/features/<name>/di.dart`
-  with a `<name>FeatScopeName` constant and a `GetIt` extension method
-  `push<Name>FeatScope(AppSettings settings)`, such as `pushHealthFeatScope`.
-  The method pushes a final scope named by the constant and registers only
-  that feature's dependencies in its `init`. The feature's `<name>.dart`
-  exports both. `lib/app/di.dart` registers shared packages in the base scope,
-  then pushes each feature's scope.
+  with a `<name>FeatureScopeName` constant and a `GetIt` extension method
+  `push<Name>FeatureScope(AppSettings settings)`, such as
+  `pushHealthFeatureScope`. The method pushes a final scope named by the
+  constant and registers only that feature's dependencies in its `init`. The
+  feature's `<name>.dart` exports both. `lib/app/di.dart` registers shared
+  packages in the base scope, then pushes each feature's scope.
+- Names follow the root naming rules. A method names what it does to which
+  value, such as `HealthRepository.checkBackendHealth()`, never a bare
+  `check()`. `JobStatusFoundHttpClient.get(path)` keeps its HTTP method name.
+  A private field that holds a collaborator names that collaborator, such as
+  `_healthApiClient`, not `_client`. Keep the names Flutter requires, such as
+  `build`, `createState`, and `props`.
 - Lints come from `very_good_analysis` in `analysis_options.yaml`. Fix the
   code instead of adding `// ignore:`.
 - `analysis_options.yaml` adds `use_primary_constructors` and

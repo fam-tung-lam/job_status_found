@@ -7,7 +7,7 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from job_status_found.features.core.app_settings import AppSettings, get_settings
+from job_status_found.features.core.app_settings import AppSettings, get_app_settings
 from job_status_found.features.core.application.ports.unit_of_work import UnitOfWork
 from job_status_found.features.core.infrastructure.adapters.sql_unit_of_work import SqlUnitOfWork
 from job_status_found.features.core.infrastructure.clients.smtp_email_sender_client import (
@@ -48,7 +48,7 @@ async def get_unit_of_work(
 
 
 async def get_smtp_email_sender_client(
-    settings: Annotated[AppSettings, Depends(get_settings)],
+    settings: Annotated[AppSettings, Depends(get_app_settings)],
 ) -> SmtpEmailSenderClient:
     """Provide the client that sends every feature's email over SMTP.
 
@@ -58,12 +58,12 @@ async def get_smtp_email_sender_client(
     Returns:
         A client for the configured SMTP server.
     """
-    password = settings.smtp_password
+    smtp_password = settings.smtp_password
     return SmtpEmailSenderClient(
         hostname=settings.smtp_host,
         port=settings.smtp_port,
         security=settings.smtp_security,
         username=settings.smtp_username,
-        password=password.get_secret_value() if password is not None else None,
-        sender=settings.smtp_sender,
+        password=smtp_password.get_secret_value() if smtp_password is not None else None,
+        from_address=settings.smtp_sender,
     )

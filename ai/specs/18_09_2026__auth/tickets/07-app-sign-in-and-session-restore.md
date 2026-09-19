@@ -48,7 +48,7 @@ in after a reload or an app restart.
   obscure toggle), `AppLabeledDivider`, `AppSizes.controlXxl` = 48, and
   `AppSizes.formMaxWidth` = 400, each with a preview in `src/previews/` and a
   test (§11.2).
-- The auth feature skeleton of §11.1 with `pushAuthFeatScope`.
+- The auth feature skeleton of §11.1 with `pushAuthFeatureScope`.
 - `AuthSessionCubit` with `AuthSessionRestoring`, `AuthSessionSignedOut`, and
   `AuthSessionSignedIn(user)`, and `RestoreSessionUseCase`: the web restores
   through the refresh cookie, mobile from stored tokens, and the user comes

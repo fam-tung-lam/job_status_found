@@ -40,7 +40,10 @@ final class DioJobStatusFoundHttpClient({
       );
       return response.data;
     } on DioException catch (exception, stackTrace) {
-      Error.throwWithStackTrace(_toClientException(exception), stackTrace);
+      Error.throwWithStackTrace(
+        _toJobStatusFoundHttpClientException(exception),
+        stackTrace,
+      );
     }
   }
 
@@ -50,30 +53,34 @@ final class DioJobStatusFoundHttpClient({
   /// Converts [exception] into the [JobStatusFoundHttpClientException]
   /// subclass for its [DioExceptionType], carrying the request URL, and for a
   /// bad response its status code and body.
-  JobStatusFoundHttpClientException _toClientException(DioException exception) {
-    final uri = exception.requestOptions.uri;
+  JobStatusFoundHttpClientException _toJobStatusFoundHttpClientException(
+    DioException exception,
+  ) {
+    final requestUri = exception.requestOptions.uri;
     return switch (exception.type) {
       DioExceptionType.connectionTimeout =>
-        JobStatusFoundHttpClientConnectionTimeout(uri),
-      DioExceptionType.sendTimeout => JobStatusFoundHttpClientSendTimeout(uri),
+        JobStatusFoundHttpClientConnectionTimeout(requestUri),
+      DioExceptionType.sendTimeout => JobStatusFoundHttpClientSendTimeout(
+        requestUri,
+      ),
       DioExceptionType.receiveTimeout => JobStatusFoundHttpClientReceiveTimeout(
-        uri,
+        requestUri,
       ),
       DioExceptionType.badCertificate => JobStatusFoundHttpClientBadCertificate(
-        uri,
+        requestUri,
       ),
       DioExceptionType.badResponse => JobStatusFoundHttpClientBadResponse(
-        uri,
+        requestUri,
         statusCode: exception.response?.statusCode,
         body: exception.response?.data,
       ),
-      DioExceptionType.cancel => JobStatusFoundHttpClientCancelled(uri),
+      DioExceptionType.cancel => JobStatusFoundHttpClientCancelled(requestUri),
       DioExceptionType.connectionError =>
-        JobStatusFoundHttpClientConnectionFailed(uri),
+        JobStatusFoundHttpClientConnectionFailed(requestUri),
       DioExceptionType.transformTimeout =>
-        JobStatusFoundHttpClientTransformTimeout(uri),
+        JobStatusFoundHttpClientTransformTimeout(requestUri),
       DioExceptionType.unknown => JobStatusFoundHttpClientUnknownFailure(
-        uri,
+        requestUri,
         cause: exception.error,
       ),
     };

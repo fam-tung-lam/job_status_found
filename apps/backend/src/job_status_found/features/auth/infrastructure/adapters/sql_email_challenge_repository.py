@@ -26,7 +26,7 @@ class SqlEmailChallengeRepository:
         """
         self._session = session
 
-    async def find_latest_created_at(
+    async def find_last_email_challenge_sent_at(
         self, owner_id: UUID, purpose: EmailChallengePurpose
     ) -> datetime | None:
         """Find when the user was last sent a challenge of a purpose.
@@ -45,7 +45,7 @@ class SqlEmailChallengeRepository:
             )
         )
 
-    async def replace_open(self, challenge: NewEmailChallenge) -> None:
+    async def replace_open_email_challenge(self, challenge: NewEmailChallenge) -> None:
         """Store a challenge and delete the user's open one of the same purpose.
 
         Args:

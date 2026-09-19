@@ -8,19 +8,19 @@ import 'package:job_status_found/packages/job_status_found_http_client/job_statu
 
 /// The name of the `get_it` scope that holds the health feature's
 /// dependencies.
-const healthFeatScopeName = 'health';
+const healthFeatureScopeName = 'health';
 
 /// Registers the health feature in its own `get_it` scope.
-extension HealthFeatScope on GetIt {
-  /// Pushes a new final [healthFeatScopeName] scope that registers only the
+extension HealthFeatureScope on GetIt {
+  /// Pushes a new final [healthFeatureScopeName] scope that registers only the
   /// health feature's dependencies.
   ///
   /// Requires a [JobStatusFoundHttpClient] in a lower scope. Remove the
-  /// feature with `dropScope(healthFeatScopeName)`. The feature reads nothing
-  /// from [settings] yet.
-  void pushHealthFeatScope(AppSettings settings) {
+  /// feature with `dropScope(healthFeatureScopeName)`. The feature reads
+  /// nothing from [settings] yet.
+  void pushHealthFeatureScope(AppSettings settings) {
     pushNewScope(
-      scopeName: healthFeatScopeName,
+      scopeName: healthFeatureScopeName,
       isFinal: true,
       init: (scope) => scope
         ..registerLazySingleton(() => HealthApiClient(scope()))

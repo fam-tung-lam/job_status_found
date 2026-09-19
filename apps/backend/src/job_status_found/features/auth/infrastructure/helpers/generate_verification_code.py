@@ -2,7 +2,7 @@
 
 import secrets
 
-_VERIFICATION_CODE_DIGITS = 6
+_VERIFICATION_CODE_DIGIT_COUNT = 6
 """Digits in a verification code, so one of a million values."""
 
 
@@ -13,4 +13,5 @@ def generate_verification_code() -> str:
         Six decimal digits, including leading zeros, each value from `000000`
         to `999999` equally likely.
     """
-    return f"{secrets.randbelow(10**_VERIFICATION_CODE_DIGITS):0{_VERIFICATION_CODE_DIGITS}d}"
+    random_number = secrets.randbelow(10**_VERIFICATION_CODE_DIGIT_COUNT)
+    return f"{random_number:0{_VERIFICATION_CODE_DIGIT_COUNT}d}"

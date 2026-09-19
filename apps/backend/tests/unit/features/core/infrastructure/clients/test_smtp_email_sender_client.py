@@ -11,7 +11,7 @@ from job_status_found.features.core import (
 )
 
 
-def _client(*, security: SmtpSecurity = "none") -> SmtpEmailSenderClient:
+def _build_smtp_client(*, security: SmtpSecurity = "none") -> SmtpEmailSenderClient:
     """Build a client for a local server with a chosen security setting."""
     return SmtpEmailSenderClient(
         hostname="127.0.0.1",
@@ -19,7 +19,7 @@ def _client(*, security: SmtpSecurity = "none") -> SmtpEmailSenderClient:
         security=security,
         username=None,
         password=None,
-        sender="JSV <no-reply@example.com>",
+        from_address="JSV <no-reply@example.com>",
     )
 
 
@@ -34,7 +34,7 @@ class TestSmtpEmailSenderClient:
         the module attribute is where to patch. `mocker` restores it after the
         test.
         """
-        self.send = mocker.patch.object(aiosmtplib, "send", autospec=True)
+        self.aiosmtplib_send = mocker.patch.object(aiosmtplib, "send", autospec=True)
 
     @pytest.mark.parametrize(
         ("security", "implicit_tls", "starttls"),
@@ -44,13 +44,15 @@ class TestSmtpEmailSenderClient:
         self, security: SmtpSecurity, implicit_tls: bool, starttls: bool
     ) -> None:
         # Given: a client with one security setting.
-        client = _client(security=security)
+        client = _build_smtp_client(security=security)
 
         # When: an email is sent.
-        await client.send(recipient="jane@example.com", subject="Hello", body="Hi Jane.")
+        await client.send_plain_text_email(
+            recipient="jane@example.com", subject="Hello", body="Hi Jane."
+        )
 
         # Then: the one connection uses implicit TLS, STARTTLS, or neither, as set.
-        [send_call] = self.send.await_args_list
+        [send_call] = self.aiosmtplib_send.await_args_list
         assert (send_call.kwargs["use_tls"], send_call.kwargs["start_tls"]) == (
             implicit_tls,
             starttls,
@@ -69,11 +71,13 @@ class TestSmtpEmailSenderClient:
         self, rejection: aiosmtplib.SMTPException
     ) -> None:
         # Given: a server that rejects the email with a reply quoting the address.
-        self.send.side_effect = rejection
+        self.aiosmtplib_send.side_effect = rejection
 
         # When: an email is sent.
         # Then: the failure keeps the error type but drops the quoted address.
         with pytest.raises(EmailDeliveryFailure) as failure:
-            await _client().send(recipient="jane@example.com", subject="Hello", body="Hi Jane.")
+            await _build_smtp_client().send_plain_text_email(
+                recipient="jane@example.com", subject="Hello", body="Hi Jane."
+            )
         assert type(rejection).__name__ in str(failure.value)
         assert "jane@example.com" not in str(failure.value)

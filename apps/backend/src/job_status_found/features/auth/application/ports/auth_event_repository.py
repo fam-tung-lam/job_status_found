@@ -8,7 +8,9 @@ from uuid import UUID
 class AuthEventRepository(Protocol):
     """Records security events inside the caller's transaction."""
 
-    async def record(self, owner_id: UUID, event_type: str, occurred_at: datetime) -> None:
+    async def record_auth_event(
+        self, owner_id: UUID, event_type: str, occurred_at: datetime
+    ) -> None:
         """Record that a security event happened to a user.
 
         Args:
@@ -18,7 +20,9 @@ class AuthEventRepository(Protocol):
         """
         ...
 
-    async def find_latest_created_at(self, owner_id: UUID, event_type: str) -> datetime | None:
+    async def find_last_auth_event_occurred_at(
+        self, owner_id: UUID, event_type: str
+    ) -> datetime | None:
         """Find when an event of a type last happened to a user.
 
         Args:

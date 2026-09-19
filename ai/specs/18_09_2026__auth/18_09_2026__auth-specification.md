@@ -740,7 +740,7 @@ without a reachable database because the engine connects on first use.
 ```text
 lib/features/auth/
 ├── auth.dart              # barrel
-├── di.dart                # pushAuthFeatScope
+├── di.dart                # pushAuthFeatureScope
 ├── domain/
 │   ├── entities/          # signed_in_user.dart
 │   └── failures/          # password_sign_in_failure.dart, sign_up_failure.dart, provider_sign_in_failure.dart, ...

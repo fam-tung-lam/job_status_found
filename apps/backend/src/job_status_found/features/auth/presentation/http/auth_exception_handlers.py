@@ -32,5 +32,7 @@ async def handle_sign_up_failure(_request: Request, failure: Exception) -> JSONR
                 status.HTTP_400_BAD_REQUEST, PASSWORD_TOO_WEAK_CODE, str(failure)
             )
         case _:
-            msg = f"No HTTP answer for {type(failure).__name__}; is it a {SignUpFailure.__name__}?"
-            raise TypeError(msg)
+            error_message = (
+                f"No HTTP answer for {type(failure).__name__}; is it a {SignUpFailure.__name__}?"
+            )
+            raise TypeError(error_message)

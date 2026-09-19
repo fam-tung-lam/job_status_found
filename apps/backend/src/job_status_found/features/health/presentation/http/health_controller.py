@@ -16,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/health")
-def health(
+def check_health(
     check_health_use_case: Annotated[CheckHealthUseCase, Depends(get_check_health_use_case)],
 ) -> HealthStatusResponse:
     """Report that the process is alive.

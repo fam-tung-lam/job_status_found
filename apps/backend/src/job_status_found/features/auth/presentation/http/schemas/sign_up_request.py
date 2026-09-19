@@ -14,7 +14,7 @@ type PersonName = Annotated[
 """A given or family name: trimmed, 1 to 100 characters, without control characters."""
 
 
-def _refuse_compatibility_characters(email: str) -> str:
+def _refuse_email_with_compatibility_characters(email: str) -> str:
     """Refuse an address that NFKC normalization would change, such as one with full-width letters.
 
     Normalization folds such characters into their plain form, so the address
@@ -30,12 +30,12 @@ def _refuse_compatibility_characters(email: str) -> str:
         ValueError: The address contains compatibility characters.
     """
     if unicodedata.normalize("NFKC", email) != email:
-        msg = "The address contains characters that only look like other characters."
-        raise ValueError(msg)
+        error_message = "The address contains characters that only look like other characters."
+        raise ValueError(error_message)
     return email
 
 
-def _refuse_unencodable_text(password: str) -> str:
+def _refuse_password_not_encodable_as_utf8(password: str) -> str:
     """Refuse a password that cannot be encoded as UTF-8, such as one with a lone surrogate.
 
     JSON can carry a lone surrogate, which no hash can encode, so it would
@@ -53,8 +53,8 @@ def _refuse_unencodable_text(password: str) -> str:
     try:
         password.encode()
     except UnicodeEncodeError as error:
-        msg = "The password contains an invalid Unicode character."
-        raise ValueError(msg) from error
+        error_message = "The password contains an invalid Unicode character."
+        raise ValueError(error_message) from error
     return password
 
 
@@ -82,12 +82,12 @@ class SignUpRequest(BaseModel):
     last_name: PersonName
     """Family name."""
 
-    email: Annotated[EmailStr, AfterValidator(_refuse_compatibility_characters)]
+    email: Annotated[EmailStr, AfterValidator(_refuse_email_with_compatibility_characters)]
     """The address to verify, as `email-validator` normalizes it: the domain lower-cased.
 
     Its syntax is checked, its mailbox is not. An address with compatibility
     characters, such as full-width letters, is refused.
     """
 
-    password: Annotated[str, AfterValidator(_refuse_unencodable_text)]
+    password: Annotated[str, AfterValidator(_refuse_password_not_encodable_as_utf8)]
     """The chosen password; 12 to 128 Unicode code points unless the minimum is configured."""

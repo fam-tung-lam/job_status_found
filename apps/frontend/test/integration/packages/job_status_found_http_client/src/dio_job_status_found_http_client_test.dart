@@ -64,16 +64,22 @@ void main() {
           _respondJson(request, 404, {'detail': 'Not Found'});
 
       // When: the client requests a missing path.
-      final request = client.get('/missing');
+      final pendingRequest = client.get('/missing');
 
       // Then: the failure carries the status code and the decoded body.
       await expectLater(
-        request,
+        pendingRequest,
         throwsA(
           isA<JobStatusFoundHttpClientBadResponse>()
-              .having((e) => e.statusCode, 'statusCode', 404)
-              .having((e) => e.body, 'body', {'detail': 'Not Found'})
-              .having((e) => e.uri.path, 'uri.path', '/missing'),
+              .having((failure) => failure.statusCode, 'statusCode', 404)
+              .having((failure) => failure.body, 'body', {
+                'detail': 'Not Found',
+              })
+              .having(
+                (failure) => failure.requestUri.path,
+                'requestUri.path',
+                '/missing',
+              ),
         ),
       );
     });
@@ -83,11 +89,11 @@ void main() {
       await server.close(force: true);
 
       // When: the client sends a request there.
-      final request = client.get('/health');
+      final pendingRequest = client.get('/health');
 
       // Then: the request fails as a connection failure.
       await expectLater(
-        request,
+        pendingRequest,
         throwsA(isA<JobStatusFoundHttpClientConnectionFailed>()),
       );
     });
@@ -97,11 +103,11 @@ void main() {
       respond = (_) {};
 
       // When: the client waits longer than its receive timeout.
-      final request = client.get('/slow');
+      final pendingRequest = client.get('/slow');
 
       // Then: the request fails as a receive timeout.
       await expectLater(
-        request,
+        pendingRequest,
         throwsA(isA<JobStatusFoundHttpClientReceiveTimeout>()),
       );
     });

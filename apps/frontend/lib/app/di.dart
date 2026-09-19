@@ -11,5 +11,5 @@ void configureDependencies(GetIt getIt, AppSettings settings) {
       () => DioJobStatusFoundHttpClient(baseUrl: settings.apiBaseUrl),
       dispose: (httpClient) => httpClient.close(),
     )
-    ..pushHealthFeatScope(settings);
+    ..pushHealthFeatureScope(settings);
 }
