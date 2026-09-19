@@ -55,7 +55,7 @@ Localization rules:
   padding number in a feature is a defect; add the missing value to the design
   system instead. That folder imports nothing else from the app.
 - A widget two features render goes in the design system's `src/components/`
-  as `App<Name>`, with a preview in `src/previews/` and a test.
+  as `App<Name>`, with a preview in `src/previews/`.
 
 ## Structure
 
@@ -122,9 +122,8 @@ Localization rules:
   parameter, in `lib/` and `test/`, also has a concise `///` comment. It says
   what the declaration is for, so a reader understands it without reading the
   body. No lint checks this, so check it in review.
-- Tests live in `test/{unit,widget,integration}/` followed by the file's path
-  under `lib/`, as `<file>_test.dart`, such as
-  `test/integration/features/health/presentation/widgets/health_status_view_test.dart`.
+- Tests live in `test/{unit,integration}/` followed by the file's path under
+  `lib/`, as `<file>_test.dart`. Do not write tests that render widgets.
 - Shared test doubles live in `test/test_doubles/` and shared helpers in
   `test/helpers/`; both serve every level.
 - Acquire and release test resources in `setUp`, `tearDown`, `setUpAll`, and
@@ -138,6 +137,10 @@ Localization rules:
 - In a local integration test, mock only the lowest API outside our control,
   such as `JobStatusFoundHttpClient` or a storage plugin. Never mock a
   repository, use case, or feature client; run them for real.
+- Test every BLoC or Cubit as a local integration from its public API through
+  its real use cases, repositories, and feature clients. Mock only the lowest
+  HTTP or storage API. Never put a BLoC or Cubit test under `test/unit/`.
+- Use `bloc_test` for every BLoC and Cubit test.
 
 ## Checks
 

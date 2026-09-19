@@ -198,3 +198,7 @@
 is authoritative for backend test structure, doubles, fixtures, isolation,
 coverage, and checks. If it conflicts with this file, follow the testing
 conventions.
+
+- Test every controller as a local integration through the app's HTTP test
+  client. Run the real downstream application components and replace only the
+  lowest unavailable API outside our control.

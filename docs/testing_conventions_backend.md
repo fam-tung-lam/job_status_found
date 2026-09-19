@@ -34,6 +34,7 @@ Keep `tests/{unit,integration}/<source path>/test_<module>.py`,
 | Use-case decisions and required side effects | Unit | Real domain rules; autospecced ports and injected helper stubs |
 | Local library wrappers | Unit | Real library; patch only a specific error or scheduling path |
 | SQL queries, locks, conflicts, and atomicity | Integration | Real PostgreSQL |
+| Controllers | Integration | Fresh app, HTTP test client, and real downstream application components |
 | Endpoint contracts, persistence, and delivery | Integration | Fresh app and the real services the path needs |
 | Migrations, lifespan, CORS, and app assembly | Integration | Relevant real database/framework components |
 
@@ -75,6 +76,13 @@ verification. Replace unavailable third-party network boundaries, not the
 application behavior being tested. Never install suite-wide service or security
 mocks. Introduce cheaper hashing parameters only after measuring a need, retaining
 production-cost interoperability coverage.
+
+A controller test is always a local integration test. Start it through the
+fresh app's HTTP test client and run the real controller, use cases,
+repositories, and feature adapters behind it. When a dependency must be
+replaced, replace only the lowest unavailable API outside our control. Never
+unit-test a controller or replace its use case, repository, or feature adapter
+with a mock.
 
 ## Exercise FastAPI correctly
 

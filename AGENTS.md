@@ -245,13 +245,19 @@ Expand an alias only when the entire user message is that alias:
 ## Tests
 
 - Each app's test folder has one top-level folder per test level, and below it
-  the path mirrors the source path: `<level>/<source path>/`. The frontend
-  levels are `unit`, `widget`, and `integration`. The backend levels are
-  `unit` and `integration`.
-- A unit test runs one class or function without a widget tree or an HTTP
-  client. A widget test renders one widget alone and checks only its UI, with
-  no real collaborators behind it. An integration test runs several real
-  components together and replaces only the lowest API outside our control.
+  the path mirrors the source path: `<level>/<source path>/`. Both apps use
+  only `unit` and `integration` levels.
+- A unit test runs one class or function in isolation. An integration test runs
+  several real components together and replaces only the lowest API outside
+  our control. Frontend tests do not render widgets.
+- A frontend BLoC or Cubit test is a local integration test that starts at the
+  BLoC or Cubit, runs its real use cases, repositories, and feature clients,
+  and mocks only the lowest API, such as the HTTP client or storage plugin.
+  Every BLoC and Cubit test uses `bloc_test`.
+- A backend controller test is a local integration test that starts at the
+  controller through the app's HTTP test client, runs the real application
+  components behind it, and replaces only the lowest unavailable API outside
+  our control.
 - Tests follow Given-When-Then with explicit `# Given:`/`// Given:`,
   `When:`, and `Then:` comments.
 
