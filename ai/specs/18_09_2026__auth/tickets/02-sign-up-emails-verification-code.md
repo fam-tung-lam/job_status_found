@@ -18,8 +18,8 @@ have an account" notice.
 - §6.1 defines three branches: a new email, the email of a verified user, and
   the email of an unverified user. The third branch overwrites the password
   hash and name, because nobody has proven that mailbox yet, unless a code went
-  out in the last 60 seconds. DEC-7 tracks why the code alone cannot tell the
-  mailbox owner which password it confirms.
+  out in the last 60 seconds. T-03 closes the remaining ambiguity by requiring
+  the matching password with the code.
 - The body and the timing must be the same in every branch, so the endpoint
   does not reveal which emails have accounts (§6.1, §9).
 - A code is stored as HMAC-SHA-256 with a server key, because a 6-digit code
@@ -129,10 +129,10 @@ Decisions made while building, which the spec and ERD now record:
   showed that replacing the password without sending a new code lets an
   attacker's password ride on the code the mailbox owner already holds. The
   owner of the mailbox would then verify an account the attacker can sign in
-  to. Inside the interval the earliest sign-up now wins. DEC-7 tracks both
-  remaining orders: an attacker after the owner outside the interval, and an
-  attacker who signs up first and repeats every 60 seconds. A person who
-  resubmits within 60 seconds to fix a typo keeps the first password and
+  to. Inside the interval the earliest sign-up now wins. T-03 closes both
+  remaining orders by binding confirmation to the matching password and
+  capping failed code-password pairs across replacement challenges. A person
+  who resubmits within 60 seconds to fix a typo keeps the first password and
   resets it later.
 - **Notice pacing.** The existing-account notice follows the same 60-second
   interval, so the endpoint cannot flood a verified user's inbox. Each notice

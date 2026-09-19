@@ -1,6 +1,6 @@
 # T-05: A verified person signs in with email and password through the API
 
-- Status: planned
+- Status: implemented
 - Spec trace: §5 (`remember_me`), §6.2 (sign-in), §7 `POST /sign-in`, §9
   (enumeration, logging), §10 (`PasswordSignInFailure`), §11.2 (no policy at
   sign-in)
@@ -78,6 +78,30 @@ right password. Otherwise it fails with `invalid_credentials`,
   user.
 - The rehash of older parameters.
 - `sign_in_failed` rows for known and unknown identifiers.
+
+## Evidence recorded
+
+All paths are under `apps/backend/`. The completed backend check passed 159
+tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
+
+| Evidence | Where |
+|----------|-------|
+| Unknown-email and social-only dummy verification, hashed audit event, successful rehash, and session commit | `tests/unit/features/auth/application/use_cases/test_sign_in_with_password_use_case.py` |
+| Verified success, unverified resend, suspended-account disclosure only after a valid password, and the HTTP failure contract | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Controlled local timing parity | Fresh migrated disposable PostgreSQL, production Argon2, 2 warmups plus 15 interleaved requests per class: medians 26.99 ms social-only, 29.05 ms unknown, and 29.19 ms wrong password; maximum median spread 2.20 ms (8.15%); means 27.99/28.93/28.94 ms; p90 30.00/30.30/30.50 ms |
+
+The timing result is controlled local evidence, not a production network
+measurement. It is sufficient to show that the three branches perform the
+same dominant Argon2 work without a material local separation.
+
+## Implementation notes
+
+- Unknown, wrong-password, and social-only branches share
+  `invalid_credentials`; each failed password check records one
+  `sign_in_failed` event with a keyed identifier hash.
+- Account state is disclosed only after the submitted password verifies.
+  Passwords stored with old parameters are rehashed before the successful
+  session transaction commits.
 
 ## Implementation freedom
 

@@ -1,6 +1,6 @@
 # T-04: An access token authenticates requests and reads the signed-in user
 
-- Status: planned
+- Status: implemented
 - Spec trace: §5 (access token verification), §7 `GET /me` and the 401 rule,
   §8 rules 1, 2, and 4, §10 (auth guards, facade)
 - Blocked by: T-03
@@ -49,8 +49,8 @@ and the linked providers. Without a valid token, it returns 401 with
 
 - A valid access token on `GET /me` returns 200 with the user's profile
   fields, `has_password`, and the linked providers (§7).
-- A missing, expired, or wrongly signed token returns 401 with
-  `WWW-Authenticate: Bearer` (§5, §7).
+- A missing, expired, or wrongly signed token returns 401
+  `access_token_invalid` with `WWW-Authenticate: Bearer` (§5, §7).
 - A token with a wrong `iss`, wrong `aud`, wrong `typ`, or an `alg` other than
   HS256, including `none`, returns 401 (§5).
 - A token signed by a verify-only key in the ring is accepted; a token whose
@@ -71,9 +71,29 @@ and the linked providers. Without a valid token, it returns 401 with
 - Authenticated by default: an unmarked route rejects anonymous requests.
 - `require_role` decides from the stored role, not the claim.
 
+## Evidence recorded
+
+All paths are under `apps/backend/`. The completed backend check passed 159
+tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
+
+| Evidence | Where |
+|----------|-------|
+| JWT header and claim checks, `alg=none` rejection, missing claims, and verify-only key rotation | `tests/unit/features/auth/infrastructure/adapters/test_jwt_access_token_codec.py` |
+| Authentication returns the principal without a database collaborator | `tests/unit/features/auth/application/use_cases/test_authenticate_access_token_use_case.py` |
+| Wrongly signed and expired bearer tokens return 401 `access_token_invalid` with `WWW-Authenticate: Bearer` | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Current-user profile and a deleted token subject | `tests/unit/features/auth/application/use_cases/test_get_current_user_use_case.py` |
+| Authenticated-by-default routing and public health/auth exceptions | `tests/integration/app/test_app.py` |
+| Stored-role authorization | `tests/unit/features/auth/application/use_cases/test_require_user_role_use_case.py` |
+
+## Implementation notes
+
+- `GET /me` returns `id`, `email`, `first_name`, `last_name`, `avatar_url`,
+  `locale`, `role`, `has_password`, and `linked_providers`.
+- Every access-token verification failure maps to the one public code
+  `access_token_invalid`. The 401 response carries
+  `WWW-Authenticate: Bearer`.
+
 ## Implementation freedom
 
-- `GET /me` field names beyond `has_password`, and the shape of the linked
-  providers.
 - How public endpoints express their opt-out.
 - The failure `require_role` raises, since no endpoint uses it yet.

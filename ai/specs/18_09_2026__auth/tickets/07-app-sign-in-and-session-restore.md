@@ -1,6 +1,6 @@
 # T-07: A verified person signs in on the app and stays signed in
 
-- Status: planned
+- Status: implemented
 - Spec trace: D-3, §5 (delivery by client kind, `remember_me`), §11.1 (HTTP
   client package, token storage, state names, routing), §11.2 (sign-in page,
   design system additions, layout, behavior, failure messages, accessibility),
@@ -122,6 +122,31 @@ in after a reload or an app restart.
 - The page working through real repositories and use cases (§14).
 - A manual sign-in on iOS, Android, and the web against the Compose backend,
   including a web reload and a mobile restart.
+
+## Evidence recorded
+
+All paths are under `apps/frontend/`. `fvm flutter analyze`, the formatting
+check, 40 automated tests, and the debug web build pass.
+
+| Evidence | Where |
+|----------|-------|
+| Web remember choice, mobile persistence default, validation, disabled in-flight state, and failure messages | `test/widget/features/auth/presentation/widgets/email_sign_in_form_test.dart` |
+| Session restore and reaction to token revocation | `test/unit/features/auth/presentation/bloc/auth_session_cubit_test.dart` |
+| Mobile tokens survive a storage-adapter restart | `test/unit/packages/job_status_found_http_client/src/job_status_found_token_storage_test.dart` |
+| Bearer attachment, single refresh, and protected-request retry | `test/integration/packages/job_status_found_http_client/src/dio_job_status_found_http_client_test.dart` |
+| Signed-out, signed-in, restoration, direct sign-up, and direct verification routing | `test/integration/app/app_router_test.dart` |
+
+Open evidence: manual sign-in on iOS, Android, and web against the Compose
+backend, including a web reload and mobile restart, has not been run.
+
+## Implementation notes
+
+- The HTTP client owns token attachment, refresh, retry, cookie credentials,
+  and platform-specific token storage. The auth feature sees only its public
+  client abstraction.
+- Router restoration preserves a requested auth location instead of replacing
+  it with `/sign-in`; a signed-in state still redirects away from auth pages.
+- User-visible auth text is routed through the localization abstraction.
 
 ## Implementation freedom
 

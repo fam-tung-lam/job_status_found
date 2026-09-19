@@ -1,6 +1,6 @@
 # T-06: Sessions refresh by rotation, detect reuse, and end on sign-out
 
-- Status: planned
+- Status: implemented
 - Spec trace: D-2, §5 (refresh token steps 1 to 5, delivery by client kind,
   cookie endpoints, lifetimes, refresh reuse grace), §7 `POST /token/refresh`,
   `POST /sign-out`, §10 (`SessionRefreshFailure`)
@@ -87,6 +87,30 @@ ends it on request.
   and pending-deletion session.
 - The cookie flow with and without a matching `Origin`.
 - Sign-out through each of its three credentials.
+
+## Evidence recorded
+
+All paths are under `apps/backend/`. The completed backend check passed 159
+tests at 96.20% coverage, together with Ruff, `ty`, and the migration checks.
+
+| Evidence | Where |
+|----------|-------|
+| Rotation, idle-expiry clamp, grace retry, exact grace boundary, origin rejection, and every ended-session state | `tests/unit/features/auth/application/use_cases/test_refresh_session_use_case.py` |
+| Unknown and exact-expiry refresh tokens, web cookie rotation, and concurrent PostgreSQL refresh locking | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+| Refresh-token precedence, bearer fallback only for an unknown refresh token, and recognized spent-token sign-out | `tests/unit/features/auth/application/use_cases/test_sign_out_use_case.py` |
+| Cookie, body, and bearer sign-out in the HTTP contract | `tests/integration/features/auth/presentation/http/test_session_flow.py` |
+
+## Implementation notes
+
+- Refresh locks both the session and matching refresh-token rows. The real
+  PostgreSQL concurrency check proves two simultaneous rotations cannot both
+  create a normal active child.
+- Normal rotation marks the parent `used_at`; it does not revoke it. A lost
+  response retried inside the grace window revokes the unused child before
+  issuing its replacement. Ending a session revokes the whole token family.
+- Sign-out uses any recognized refresh-token hash, including a spent or
+  revoked token, to identify and revoke that token's session. It falls back to
+  the bearer principal only when no refresh-token row exists.
 
 ## Implementation freedom
 

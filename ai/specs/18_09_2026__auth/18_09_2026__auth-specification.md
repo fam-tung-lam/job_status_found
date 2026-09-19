@@ -1,8 +1,8 @@
 # Authentication and authorization specification
 
-Status: proposed. The schema and its first migration (ticket T-01) and
-email sign-up (T-02) are implemented. Package versions and provider facts were verified on
-2026-09-18; section 15 lists what is still unverified.
+Status: proposed. Tickets T-01 through T-08 are implemented. Package versions
+and provider facts were verified on 2026-09-18; implementation evidence was
+updated on 2026-09-19. Section 15 lists what is still unverified.
 
 Sign-up and sign-in with email and password and Google, for
 the Flutter app (iOS, Android, web) and the FastAPI backend. The sign-in and
@@ -11,6 +11,22 @@ sign-up pages follow the mock-ups [login_page.png](assets/login_page_ui.png) and
 icon; section 11.2 specifies them.
 
 Tables, columns, keys, and retention live in [auth-erd.md](18_09_2026__auth-erd.md).
+
+## Implementation summary
+
+- T-01 through T-06 implement the schema, password sign-up, password-bound
+  email confirmation, JWT access authentication, `GET /me`, password sign-in,
+  refresh rotation with reuse detection, and sign-out.
+- T-07 and T-08 implement frontend session restore, guarded routing, password
+  sign-in, registration, and email verification. `url_launcher` 6.3.2 opens
+  the configured legal URLs.
+- The final backend check passed 160 tests at 96.34% coverage. The final
+  frontend check passed analysis, formatting, 54 tests, and a debug web
+  build.
+- Manual iOS, Android, and web runs against Compose and Mailpit remain open,
+  including web reload and mobile restart evidence. Password sign-in timing
+  was measured locally under controlled conditions; ticket T-05 records the
+  method and results.
 
 ## 1. Decisions
 
@@ -158,7 +174,7 @@ Not used: `fastapi-users` (section 1), `passlib` (last release 2020),
 | Token attach, refresh, retry | `fresh_dio`              | 0.6.0   | By the author of `bloc`. Single-flights concurrent refreshes, refreshes 30 s before expiry, exposes `authenticationStatus`                       |
 | Token storage, mobile        | `flutter_secure_storage` | 11.2.0  | Already a project dependency. Not used on the web, where its README calls the implementation experimental                                        |
 | PKCE and nonce hashing       | `crypto`                 | -       | SHA-256; version not checked                                                                                                                     |
-| Terms and privacy links      | `url_launcher`           | -       | Already a transitive dependency of `flutter_web_auth_2`; version not checked                                                                     |
+| Terms and privacy links      | `url_launcher`           | 6.3.2   | Direct dependency used to open the configured Terms of Use and Privacy Policy URLs                                                               |
 | Path URLs on the web         | `flutter_web_plugins`    | SDK     | `usePathUrlStrategy()` so the reset link is `/reset-password?token=...`, not a `#` fragment                                                      |
 
 None needs code generation. `google_sign_in_android` 7.2.17 requires Flutter
@@ -204,6 +220,10 @@ before adding them.
    `refresh_token_reused`, record an `auth_events` row, and fail with
    `session_ended`. Both the thief and the owner must sign in again, which is
    the intended outcome of RFC 9700's reuse rule.
+
+Normal rotation spends a parent by setting `used_at`; it does not set the
+parent's `revoked_at`. `revoked_at` marks a child superseded during the grace
+retry or a token revoked when its session or family ends.
 
 ### Delivery by client kind
 
@@ -290,8 +310,8 @@ sequenceDiagram
     AuthApi -->> FlutterApp: RESPONDS 202 with the same body in every branch
     deactivate AuthApi
     Person ->> FlutterApp: ENTERS code from the email
-    FlutterApp ->>+ AuthApi: SUBMITS email, code, client kind
-    AuthApi ->> Database: CHECKS code hash, expiry, attempt count
+    FlutterApp ->>+ AuthApi: SUBMITS email, code, password, client kind
+    AuthApi ->> Database: CHECKS code, password, expiry, cumulative failures
     AuthApi ->> Database: UPDATES email_verified_at, CREATES session
     AuthApi -->>- FlutterApp: RESPONDS with token pair
 ```
@@ -307,14 +327,17 @@ sequenceDiagram
 - Within 60 seconds of the last code, the third branch changes nothing, so the
   earliest sign-up wins there. A password replaced without a new email would
   ride on the code the mailbox owner already holds.
-- Neither order lets the mailbox owner tell which password a code confirms:
-  an attacker can sign up after the owner, once 60 seconds have passed, or
-  before the owner, and then repeat every 60 seconds. DEC-7 in the ticket plan
-  tracks the fix.
+- Confirmation carries the code and password together. The backend verifies
+  both before it sets `email_verified_at`, so the mailbox owner cannot confirm
+  a code for a password they did not submit. Unknown email, missing or expired
+  challenge, consumed challenge, wrong code, and wrong password all fail with
+  `verification_code_invalid`.
 - The existing-account notice goes out at most once per 60 seconds per user,
   paced by its `auth_events` row, so the endpoint cannot flood an inbox.
-- A wrong code increments `attempt_count`; the fifth wrong code consumes the
-  challenge.
+- Each wrong code-password pair writes and commits one
+  `email_verification_failed` event before the failure is raised. Five failures
+  per user in the rolling configured verification-code lifetime, 15 minutes by
+  default, consume the current challenge across challenge replacements.
 
 ### 6.2 Password sign-in, reset, and change
 
@@ -542,7 +565,7 @@ access token; "Recent" adds the recent-authentication rule. `TokenPair` is
 | `POST /password-reset/confirm`         | -                       | 204                                        | `reset_token_invalid`, `password_too_weak`, `password_breached`             |
 | `PUT /password`                        | Bearer                  | 204                                        | `invalid_credentials`, `recent_authentication_required` (first password)    |
 | `POST /reauthentication`               | Bearer                  | 204                                        | `invalid_credentials`                                                       |
-| `GET /me`                              | Bearer                  | 200 user, `has_password`, linked providers | -                                                                           |
+| `GET /me`                              | Bearer                  | 200 current user                           | `access_token_invalid`                                                      |
 | `DELETE /me`                           | Recent                  | 202                                        | `recent_authentication_required`                                            |
 | `POST /email-change/request`           | Recent                  | 202                                        | `recent_authentication_required`                                            |
 | `POST /email-change/confirm`           | Bearer                  | 204                                        | `verification_code_invalid`                                                 |
@@ -552,6 +575,10 @@ access token; "Recent" adds the recent-authentication rule. `TokenPair` is
 
 - Every endpoint can also fail with 422 (invalid input) and 429
   `too_many_attempts` with a `Retry-After` header.
+- `POST /email-verification/confirm` carries `email`, `code`, `password`,
+  `client_kind`, and `remember_me`. `GET /me` returns `id`, `email`,
+  `first_name`, `last_name`, `avatar_url`, `locale`, `role`, `has_password`,
+  and `linked_providers`.
 - Errors use RFC 9457 `application/problem+json` with one extension member,
   `code`, holding the stable values above. `type` is `about:blank`, so `title`
   is the status phrase. The app switches on `code`, never on `detail`. A 401
@@ -559,8 +586,8 @@ access token; "Recent" adds the recent-authentication rule. `TokenPair` is
 - A 422 has the code `invalid_input` and a second extension member, `errors`,
   listing each invalid field's `loc`, `msg`, and `type`. It never repeats a
   submitted value, unlike FastAPI's default body.
-- Status mapping: 401 for `invalid_credentials`, `provider_token_invalid`,
-  `refresh_token_invalid`, `session_ended`; 403 for
+- Status mapping: 401 for `access_token_invalid`, `invalid_credentials`,
+  `provider_token_invalid`, `refresh_token_invalid`, `session_ended`; 403 for
   `email_verification_required`, `recent_authentication_required`,
   `account_unavailable`; 409 for `account_exists_link_required`,
   `identity_already_linked`, `last_sign_in_method`; 400 for the rest.
@@ -595,12 +622,13 @@ filter, and these five rules stay.
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Password policy     | 12 to 128 characters, counted in Unicode code points, no composition rules, no forced rotation. Rejected when found in the Pwned Passwords range API (k-anonymity: only the first 5 SHA-1 hex characters leave the server). The check fails open on an outage. ASVS 5.0 requires 8 and recommends 15; NIST SP 800-63B-4 requires 15 without MFA. See section 15 |
 | Enumeration         | Sign-up, resend, and reset request answer identically for known and unknown emails. Sign-up also answers no sooner than a minimum response time. Sign-in uses one failure code and equalized timing. An email whose NFKC form differs from itself is refused, so no second mailbox can share an account                                                    |
+| Verification cap    | Confirmation checks the code and password together. Every failed pair for an unverified user records `email_verification_failed`; five failures per user in the rolling configured verification-code lifetime consume the current challenge across replacements. The write commits before the generic `verification_code_invalid` response                         |
 | Account throttle    | 5 `sign_in_failed` events per `identifier_hash` in 15 minutes block further password checks for that identifier for 15 minutes. A block, not a permanent lock, so it cannot be used to lock a victim out for good                                                                                                                                               |
 | IP throttle         | `limits` moving window per route group: sign-in 10/min, sign-up 5/min, code confirm 10/15 min, reset request 3/5 min, exchange 20/min. The client IP comes from `X-Forwarded-For` only when Uvicorn's `--forwarded-allow-ips` names the proxy                                                                                                                   |
 | CORS                | `allow_credentials=True`, the existing origin regex, methods `GET, POST, PUT, DELETE`, headers `Authorization, Content-Type`. `app/app.py` currently allows `GET` only                                                                                                                                                                                          |
 | Secrets in storage  | Refresh tokens, exchange codes, and `state`: SHA-256. Codes, reset tokens, and `identifier_hash`: HMAC-SHA-256 with a server key, because a 6-digit code has too little entropy for a bare hash                                                                                                                                                                 |
 | Secrets in settings | `SecretStr` values under the `JSF_AUTH_` prefix: JWT key ring, HMAC key, Google client secret. Never logged, never in the image                                                                                                                                                                                                                                 |
-| Logging             | One `auth_events` row and one log record per security event. Neither holds a password, token, code, `state`, PKCE value, or raw email                                                                                                                                                                                                                           |
+| Logging             | One `auth_events` row and one log record per security event, including `email_verification_failed`, `sign_in_failed`, and `refresh_token_reused`. Neither holds a password, token, code, `state`, PKCE value, or raw email                                                                                                                                       |
 | Notices by email    | Password changed, email changed (to the old address), provider linked, sign-up attempted on an existing account                                                                                                                                                                                                                                                 |
 | Transport           | HTTPS and HSTS at the reverse proxy in production                                                                                                                                                                                                                                                                                                               |
 
@@ -912,6 +940,29 @@ in a feature a defect, so the Simplify styling is not copied.
 | `password_breached`                                                                            | Inline under the password field: "This password appears in known data breaches. Choose another."                                  |
 | No connection, timeout, 5xx                                                                    | "We could not reach the server. Check your connection and try again."                                                             |
 
+#### Email verification page
+
+`EmailVerificationPage` at `/verify-email?email=` uses `AuthPageFrame` with
+the headline "Check your email" and an explanation naming the email address.
+It contains, in order, a 6-digit code field, a password field, the "Verify
+email" primary action, "Resend code", and "Use a different email".
+
+- Confirmation sends the email, code, password, client kind, and
+  `remember_me`. The failure `verification_code_invalid` shows: "The code or
+  password is incorrect, expired, or no longer works. Check both, or request a
+  new code."
+- A 60-second resend countdown starts when the page opens and after an
+  accepted resend. Resend is single-flight. An accepted resend clears the code
+  and keeps the password.
+- While confirmation or resend is in flight, every field, button, and back
+  navigation control is disabled.
+- The route URL carries only the email. Password and `remember_me` are
+  ephemeral route state. A direct visit or web reload therefore asks for the
+  password again.
+- A verification page reached from sign-in keeps that form's `remember_me`
+  choice. Sign-up and direct visits use the platform default: false on web and
+  true on iOS and Android.
+
 #### Design system additions
 
 | Addition                                       | What it is                                                                                                                                                          |
@@ -1038,8 +1089,7 @@ at the lowest boundary we do not control.
 | Sign in with Apple on iOS                     | Risk. App Store guideline 4.8 requires a privacy-preserving login beside Google on iOS. Add Apple before the first App Store release                                                    |
 | Google PKCE, confidential client              | Advertised in discovery, not documented for the web-server flow. Send it; drop it if Google rejects it                                                                                  |
 | Safari, `Secure` cookie on `http://localhost` | A WebKit fix landed in April 2026; which shipped Safari has it is unverified. The development cookie setting covers it                                                                  |
-| `crypto`, `url_launcher`                      | Versions not checked                                                                                                                                                                    |
-| Which password a verification code confirms   | Open, DEC-7 in the ticket plan. The mailbox owner cannot tell which password a code confirms: a later sign-up over 60 seconds after the last code replaces the password and mails a new code, and an earlier sign-up, repeated every 60 seconds, keeps the owner's own sign-up inside the interval, where it changes nothing. Recommendation: the confirm request also carries the password, and the backend checks it before it verifies the email |
+| `crypto`                                      | Version not checked; it lands with the first flow that needs PKCE or nonce hashing                                                                                                      |
 | Headline and subtitle copy                    | Taken from the mock-ups as asked. "Apply to jobs in 1-click" and "recruiter-approved AI" are Simplify's product claims; replace both `AuthStrings` values when JSV has its own          |
 | Legal line on the sign-in page                | The mock-up shows it on sign-up only, but the Google button on the sign-in page   can also create an account. Recommendation: show the same line under the sign-in page's Google button |
 | Mock-up colors and pill shape                 | Not copied (section 11.2). Adopting them is a design system change to the primary color and control radius, not an auth change                                                          |
