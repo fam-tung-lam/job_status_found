@@ -3,7 +3,7 @@
 # Base images are pinned by tag and digest; Dependabot raises both together.
 # The uv version stays inside the `uv_build` range in pyproject.toml, so uv
 # builds the project with its bundled backend instead of downloading one.
-FROM ghcr.io/astral-sh/uv:0.10.7@sha256:edd1fd89f3e5b005814cc8f777610445d7b7e3ed05361f9ddfae67bebfe8456a AS uv
+FROM ghcr.io/astral-sh/uv:0.10.12@sha256:72ab0aeb448090480ccabb99fb5f52b0dc3c71923bffb5e2e26517a1c27b7fec AS uv
 
 FROM python:3.14.7-slim-trixie@sha256:cad9a2c871761c413caa6fdd6441c783451e740a48aaeba60ae62a8b53525ef6 AS base
 ENV PYTHONUNBUFFERED=1 \
