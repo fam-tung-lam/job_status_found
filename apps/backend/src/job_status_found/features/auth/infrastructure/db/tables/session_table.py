@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index
 from sqlalchemy.orm import Mapped
 
-from job_status_found.db.db import Base, IpAddress, SurrogateKey
+from job_status_found.features.core import Base, IpAddress, SurrogateKey
 
 
 class SessionTable(Base):

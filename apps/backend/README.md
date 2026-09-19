@@ -10,16 +10,17 @@ uv run uvicorn job_status_found.main:app --reload
 
 ## Docker
 
-The stack is the backend plus PostgreSQL 18. Copy `.env.example` to `.env` and
-set `JSF_DATABASE_PASSWORD` first; Compose refuses to start without
-`JSF_DATABASE_NAME`, `JSF_DATABASE_USER`, and `JSF_DATABASE_PASSWORD`.
+The stack is the backend plus PostgreSQL 18; development adds Mailpit. Copy
+`.env.example` to `.env` and set `JSF_DATABASE_PASSWORD` and
+`JSF_AUTH_HMAC_KEY` first; Compose refuses to start without the database
+values and the required `JSF_AUTH_*` values the file lists.
 
 ```shell
 # development: editable install, auto-reload, source synced on change
 docker compose up --build --watch
 
-# PostgreSQL only, for a backend started on the host with `uv run`
-docker compose up --wait postgres
+# PostgreSQL and Mailpit only, for a backend started on the host with `uv run`
+docker compose up --wait postgres mailpit
 
 # production-like: hardened runtime image, no development overrides
 docker compose -f docker-compose.yml up --build --wait
@@ -35,9 +36,13 @@ docker build -t job-status-found-backend .
 - `docker-compose.yml` is the production-like stack.
   `docker-compose.override.yml` adds the development setup and loads
   automatically.
-- Both services publish on `127.0.0.1` only: the backend on `BACKEND_PORT`
+- Every service publishes on `127.0.0.1` only: the backend on `BACKEND_PORT`
   (default 8000) and, in development, PostgreSQL on `JSF_DATABASE_PORT`
-  (default 5432).
+  (default 5432) and Mailpit's SMTP on `JSF_SMTP_PORT` (default 1025)
+  and its web UI and API on `MAILPIT_WEB_PORT` (default 8025).
+- In development every email the backend sends lands in Mailpit, at
+  <http://localhost:8025>; nothing leaves the machine. The development backend
+  container reaches it as `mailpit:1025`.
 - `.env` holds one set of `JSF_DATABASE_*` values. Compose creates the
   PostgreSQL role and database from them and passes them to the backend
   container with `JSF_DATABASE_HOST=postgres`; a backend started on the host
@@ -81,7 +86,7 @@ uv run alembic revision --autogenerate -m "describe the change"
   the upgrade has run.
 - Mapped tables live in `features/<feature>/infrastructure/db/tables/`. A
   feature's tables reach Alembic only after its tables package is imported in
-  `src/job_status_found/db/alembic_metadata.py`.
+  `src/job_status_found/app/alembic_metadata.py`.
 - `uv run alembic check` compares the mapped tables with a database at head
   without writing a revision. It fails on a table whose package was never
   registered and on differing columns, types, nullability, server defaults,
@@ -92,7 +97,7 @@ uv run alembic revision --autogenerate -m "describe the change"
 ## Checks
 
 ```shell
-docker compose up --wait postgres
+docker compose up --wait postgres mailpit
 uv run alembic upgrade head
 uv run alembic check
 uv run ruff check .
@@ -101,8 +106,10 @@ uv run ty check
 uv run pytest --cov
 ```
 
-`alembic check` and the integration tests need the Compose PostgreSQL. The
-migration tests create throwaway databases on that server and drop them
+`alembic check` and the integration tests need the Compose PostgreSQL, and the
+auth integration tests read delivered mail from Mailpit's API on
+`MAILPIT_WEB_PORT` (default 8025; export it in the shell when you change it).
+The migration tests create throwaway databases on that server and drop them
 afterwards, so the development data stays untouched. When another service
 already holds port 5432, set another port in `.env`, such as
 `JSF_DATABASE_PORT=55432`. Compose publishes PostgreSQL on it, and every host
@@ -111,7 +118,8 @@ command above connects to it, while the backend container keeps using 5432.
 Docstring rules live in [AGENTS.md](AGENTS.md).
 
 Settings are read from `JSF_`-prefixed environment variables or `.env`
-(see `src/job_status_found/app/app_settings.py`).
+(see `src/job_status_found/features/core/app_settings.py`; each feature's own
+values live in its `<feature>_settings.py`, such as `JSF_AUTH_*`).
 
 Browsers may call the API only from origins matching
 `JSF_CORS_ALLOW_ORIGIN_REGEX`. The default allows any `localhost` or

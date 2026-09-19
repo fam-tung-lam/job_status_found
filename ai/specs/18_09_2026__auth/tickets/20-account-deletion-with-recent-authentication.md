@@ -3,7 +3,7 @@
 - Status: planned
 - Spec trace: §5 (recent authentication), §6.6 (step 1), §7
   `POST /reauthentication`, `DELETE /me`, §8 rule 5, §10
-  (`app/authentication.py`)
+  (auth guards)
 - Blocked by: T-06
 - Blocks: T-21, T-22, T-23, T-24, T-26
 
@@ -28,7 +28,9 @@ re-authenticates with `POST /v1/auth/reauthentication`.
 
 ## In scope
 
-- `require_recent_authentication` in `app/authentication.py`, with the
+- `require_recent_authentication` in
+  `features/auth/presentation/http/authentication_guards.py`, published
+  through the auth facade, with the
   10-minute window as a setting (§5, §8 rule 5, §10).
 - `ReauthenticateWithPasswordUseCase` and `POST /v1/auth/reauthentication`
   (Bearer): the right password sets the session's `authenticated_at` to now

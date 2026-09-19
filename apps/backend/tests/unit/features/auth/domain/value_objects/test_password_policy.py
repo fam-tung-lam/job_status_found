@@ -1,0 +1,26 @@
+import pytest
+
+from job_status_found.features.auth.domain.value_objects.password_policy import PasswordPolicy
+
+# Four bytes in UTF-8 but one code point, so a policy that counted bytes would
+# accept 11 of them and refuse 128.
+FOUR_BYTE_CHARACTER = "🔒"
+
+
+@pytest.mark.parametrize(
+    ("code_points", "allowed"),
+    [(11, False), (12, True), (128, True), (129, False)],
+)
+def test_password_length_is_bounded_by_code_points_not_bytes(
+    code_points: int, allowed: bool
+) -> None:
+    # Given: the default policy of 12 to 128 code points, and a password of
+    # multi-byte characters.
+    policy = PasswordPolicy(min_length=12)
+    password = FOUR_BYTE_CHARACTER * code_points
+
+    # When: the policy judges the password.
+    verdict = policy.validate(password)
+
+    # Then: only lengths inside both bounds pass.
+    assert verdict is allowed

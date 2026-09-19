@@ -2,7 +2,7 @@
 
 - Status: planned
 - Spec trace: §5 (access token verification), §7 `GET /me` and the 401 rule,
-  §8 rules 1, 2, and 4, §10 (`app/authentication.py`, facade)
+  §8 rules 1, 2, and 4, §10 (auth guards, facade)
 - Blocked by: T-03
 - Blocks: T-06
 
@@ -27,9 +27,10 @@ and the linked providers. Without a valid token, it returns 401 with
 ## In scope
 
 - `AuthenticateAccessTokenUseCase`. The auth facade exports
-  `AuthenticatedPrincipal`, `UserRole`, and `AuthenticateAccessTokenUseCase`
-  (§10).
-- `app/authentication.py` with `get_authenticated_principal`, which returns
+  `AuthenticatedPrincipal`, `UserRole`, `AuthenticateAccessTokenUseCase`,
+  and the guards below (§10).
+- `features/auth/presentation/http/authentication_guards.py` with
+  `get_authenticated_principal`, which returns
   `AuthenticatedPrincipal(user_id, session_id, role)` (§8 rule 2), and
   `require_role`, which loads the role from the database instead of trusting
   the claim (§8 rule 4).

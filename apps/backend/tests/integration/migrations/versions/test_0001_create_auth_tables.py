@@ -12,17 +12,17 @@ from sqlalchemy import inspect as inspect_database
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.pool import NullPool
 
-from job_status_found.app.app_settings import AppSettings
-from job_status_found.db.alembic_metadata import metadata
+from job_status_found.app.alembic_metadata import metadata
+from job_status_found.features.core import AppSettings
 
 NOW = datetime(2026, 9, 18, 12, 0, tzinfo=UTC)
 
 type RowBuilder = Callable[[Connection, Mapping[str, object]], dict[str, object]]
 
 
-# Creates an empty database on the configured server and drops it afterwards.
 @contextmanager
 def _throwaway_database() -> Iterator[URL]:
+    """Create an empty database on the configured server, and drop it afterwards."""
     server_url = AppSettings().database_url
     database_name = f"jsf_test_{uuid4().hex}"
     admin_engine = create_engine(server_url, isolation_level="AUTOCOMMIT", poolclass=NullPool)
@@ -38,20 +38,22 @@ def _throwaway_database() -> Iterator[URL]:
         admin_engine.dispose()
 
 
-# Runs one Alembic command through `migrations/env.py` on the engine's database.
 def _run_alembic(
     engine: Engine, project_root: Path, alembic_command: Callable[[Config], None]
 ) -> None:
+    """Run one Alembic command through `migrations/env.py` on the engine's database."""
     with engine.begin() as connection:
         config = Config(str(project_root / "alembic.ini"), attributes={"connection": connection})
         alembic_command(config)
 
 
 def _upgrade_to_head(config: Config) -> None:
+    """Upgrade the database to the newest revision."""
     command.upgrade(config, "head")
 
 
 def _downgrade_to_base(config: Config) -> None:
+    """Downgrade the database to before the first revision."""
     command.downgrade(config, "base")
 
 
@@ -81,14 +83,15 @@ def connection(migrated_database: Engine) -> Iterator[Connection]:
         transaction.rollback()
 
 
-# Inserts the parent row a column references, unless the test supplied it.
 def _parent(
     connection: Connection, given: Mapping[str, object], column: str, table_name: str
 ) -> dict[str, object]:
+    """Insert the parent row a column references, unless the test supplied it."""
     return {} if column in given else {column: _insert(connection, table_name)}
 
 
 def _user_row(_connection: Connection, _given: Mapping[str, object]) -> dict[str, object]:
+    """Build valid `users` values with a unique email."""
     email = f"{uuid4().hex}@example.com"
     return {
         "email": email,
@@ -104,6 +107,7 @@ def _user_row(_connection: Connection, _given: Mapping[str, object]) -> dict[str
 def _password_credential_row(
     connection: Connection, given: Mapping[str, object]
 ) -> dict[str, object]:
+    """Build valid `password_credentials` values, inserting their user if needed."""
     return _parent(connection, given, "user_id", "users") | {
         "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$c2FsdA$aGFzaA",
         "created_at": NOW,
@@ -114,6 +118,7 @@ def _password_credential_row(
 def _external_identity_row(
     connection: Connection, given: Mapping[str, object]
 ) -> dict[str, object]:
+    """Build valid `external_identities` values, inserting their user if needed."""
     return _parent(connection, given, "user_id", "users") | {
         "provider": "google",
         "provider_subject": uuid4().hex,
@@ -123,6 +128,7 @@ def _external_identity_row(
 
 
 def _session_row(connection: Connection, given: Mapping[str, object]) -> dict[str, object]:
+    """Build valid `sessions` values, inserting their user if needed."""
     return _parent(connection, given, "user_id", "users") | {
         "sign_in_method": "password",
         "client_kind": "web",
@@ -136,6 +142,7 @@ def _session_row(connection: Connection, given: Mapping[str, object]) -> dict[st
 
 
 def _refresh_token_row(connection: Connection, given: Mapping[str, object]) -> dict[str, object]:
+    """Build valid `refresh_tokens` values, inserting their session if needed."""
     return _parent(connection, given, "session_id", "sessions") | {
         "token_hash": uuid4().bytes,
         "created_at": NOW,
@@ -144,6 +151,7 @@ def _refresh_token_row(connection: Connection, given: Mapping[str, object]) -> d
 
 
 def _email_challenge_row(connection: Connection, given: Mapping[str, object]) -> dict[str, object]:
+    """Build valid `email_challenges` values, inserting their user if needed."""
     return _parent(connection, given, "user_id", "users") | {
         "purpose": "verify_email",
         "secret_hash": uuid4().bytes,
@@ -156,6 +164,7 @@ def _email_challenge_row(connection: Connection, given: Mapping[str, object]) ->
 def _oauth_authorization_attempt_row(
     _connection: Connection, _given: Mapping[str, object]
 ) -> dict[str, object]:
+    """Build valid `oauth_authorization_attempts` values with unique hashes."""
     return {
         "provider": "google",
         "purpose": "sign_in",
@@ -170,6 +179,7 @@ def _oauth_authorization_attempt_row(
 
 
 def _auth_event_row(_connection: Connection, _given: Mapping[str, object]) -> dict[str, object]:
+    """Build valid `auth_events` values without a user, as for an attempt before sign-in."""
     return {"event_type": "sign_in_failed", "created_at": NOW}
 
 
@@ -183,10 +193,11 @@ _ROW_BUILDERS: dict[str, RowBuilder] = {
     "oauth_authorization_attempts": _oauth_authorization_attempt_row,
     "auth_events": _auth_event_row,
 }
+"""The builder of valid values for each table, so `_insert` can fill any row."""
 
 
-# Inserts a valid row, with `given` overriding its values, and returns its key.
 def _insert(connection: Connection, table_name: str, **given: object) -> UUID:
+    """Insert a valid row, with `given` overriding its values, and return its key."""
     table = metadata.tables[table_name]
     row = _ROW_BUILDERS[table_name](connection, given) | given
     key_column = next(iter(table.primary_key.columns))
@@ -196,12 +207,14 @@ def _insert(connection: Connection, table_name: str, **given: object) -> UUID:
 
 
 def _stored_value(connection: Connection, table_name: str, row_id: UUID, column: str) -> object:
+    """Read one column of the row with a key."""
     table = metadata.tables[table_name]
     key_column = next(iter(table.primary_key.columns))
     return connection.execute(select(table.c[column]).where(key_column == row_id)).scalar_one()
 
 
 def _count(connection: Connection, table_name: str) -> int:
+    """Count the rows of a table."""
     return connection.execute(
         select(func.count()).select_from(metadata.tables[table_name])
     ).scalar_one()

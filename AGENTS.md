@@ -133,6 +133,19 @@ Expand an alias only when the entire user message is that alias:
 
 - Names are specific and understandable on their own. A reader should know
   what a type holds or does without opening it.
+- Prefer a long, specific name over a short, generic one. Name a type,
+  method, and parameter after the domain value it handles, such as a
+  verification code, a reset link token, or a refresh token, and after what it
+  does to that value. `VerificationCodeGenerator.generate_verification_code()`
+  and `VerificationCodeHasher.hash_verification_code(code)` beat
+  `SecretGenerator.new_verification_code()` and
+  `SecretHasher.keyed_hash(secret)`.
+- Never use a word that suggests something else. `secret` for a code or token
+  reads as a password or key. Generic words such as `data`, `info`, `manager`,
+  `helper`, `util`, or `common` say nothing about what the code does.
+- One type does one job. Split a type that does two, even for the same value:
+  a generator and a hasher of verification codes are two types, not one
+  `...GeneratorAndHasher`.
 - A use case class is `<Verb><Noun>UseCase`, such as `CheckHealthUseCase`, in
   `<verb>_<noun>_use_case.<ext>`. Its one public method is `invoke`, never
   `execute`, `call`, or `run`.
@@ -141,6 +154,15 @@ Expand an alias only when the entire user message is that alias:
 - A state names the subject and what is known about it, such as
   `HealthStatusHealthy`. Do not use generic names such as `Initial`,
   `Loading`, or `Loaded`.
+
+## Documentation
+
+- Every declaration has a concise doc comment, public or private: modules,
+  types, functions, methods, properties, fields, and constants, in source and
+  test code. It says what the declaration holds or does, and why when that is
+  not obvious, so a reader understands it without reading its body.
+- Linters check public declarations only, so check private ones in review.
+  Each app's `AGENTS.md` names its syntax and exceptions.
 
 ## Results and errors
 
