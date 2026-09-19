@@ -24,6 +24,7 @@ from job_status_found.features.auth.application.ports.password_credential_reposi
 from job_status_found.features.auth.application.ports.user_repository import UserRepository
 from job_status_found.features.auth.domain.entities.user import User
 from job_status_found.features.auth.domain.failures.sign_up_failure import SignUpPasswordTooWeak
+from job_status_found.features.auth.domain.value_objects.auth_event_type import AuthEventType
 from job_status_found.features.auth.domain.value_objects.email_address import EmailAddress
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
     EmailChallengePurpose,
@@ -32,9 +33,6 @@ from job_status_found.features.auth.domain.value_objects.password_policy import 
 from job_status_found.features.core import UnitOfWork
 
 logger = logging.getLogger(__name__)
-
-EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE = "existing_account_notice_sent"
-"""`auth_events.event_type` of a notice sent to a verified account's owner."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -193,7 +191,7 @@ class SignUpWithPasswordUseCase:
         """
         # Send a notice only when the last one is at least one interval old.
         last_notice_sent_at = await self._auth_events.find_last_auth_event_occurred_at(
-            user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE
+            user.id, AuthEventType.EXISTING_ACCOUNT_NOTICE_SENT
         )
         should_send_notice = self._has_send_interval_passed_since(last_notice_sent_at, now)
 
@@ -201,7 +199,7 @@ class SignUpWithPasswordUseCase:
         # transaction that locked the row when nothing was written.
         if should_send_notice:
             await self._auth_events.record_auth_event(
-                user.id, EXISTING_ACCOUNT_NOTICE_SENT_EVENT_TYPE, now
+                user.id, AuthEventType.EXISTING_ACCOUNT_NOTICE_SENT, now
             )
         await self._unit_of_work.commit()
         logger.info(

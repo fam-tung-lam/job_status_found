@@ -3,12 +3,13 @@
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from job_status_found.features.auth.application.dtos.new_email_challenge import (
     NewEmailChallenge,
 )
+from job_status_found.features.auth.domain.entities.email_challenge import EmailChallenge
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
     EmailChallengePurpose,
 )
@@ -72,3 +73,69 @@ class SqlEmailChallengeRepository:
         row.expires_at = challenge.expires_at
         row.consumed_at = None
         self._session.add(row)
+
+    async def lock_open_email_challenge(
+        self, owner_id: UUID, purpose: EmailChallengePurpose
+    ) -> EmailChallenge | None:
+        """Find and lock an owner's open challenge of a purpose.
+
+        Args:
+            owner_id: The user who must answer.
+            purpose: What answering proves.
+
+        Returns:
+            The locked open challenge, or `None` when none exists.
+        """
+        row = await self._session.scalar(
+            select(EmailChallengeTable)
+            .where(
+                EmailChallengeTable.user_id == owner_id,
+                EmailChallengeTable.purpose == purpose,
+                EmailChallengeTable.consumed_at.is_(None),
+            )
+            .with_for_update()
+        )
+        if row is None:
+            return None
+        return EmailChallenge(
+            id=row.id,
+            owner_id=row.user_id,
+            secret_hash=row.secret_hash,
+            attempt_count=row.attempt_count,
+            expires_at=row.expires_at,
+            consumed_at=row.consumed_at,
+        )
+
+    async def register_wrong_email_challenge_answer(
+        self, challenge_id: UUID, *, attempt_count: int, consumed_at: datetime | None
+    ) -> None:
+        """Store a wrong answer count and consume the challenge when exhausted.
+
+        Args:
+            challenge_id: The challenge answered incorrectly.
+            attempt_count: The new wrong-answer count.
+            consumed_at: When exhausted, or `None` while attempts remain.
+        """
+        await self._session.execute(
+            update(EmailChallengeTable)
+            .where(EmailChallengeTable.id == challenge_id)
+            .values(
+                {
+                    EmailChallengeTable.attempt_count: attempt_count,
+                    EmailChallengeTable.consumed_at: consumed_at,
+                }
+            )
+        )
+
+    async def consume_email_challenge(self, challenge_id: UUID, consumed_at: datetime) -> None:
+        """Mark a successfully answered challenge as consumed.
+
+        Args:
+            challenge_id: The answered challenge.
+            consumed_at: When it was answered.
+        """
+        await self._session.execute(
+            update(EmailChallengeTable)
+            .where(EmailChallengeTable.id == challenge_id)
+            .values({EmailChallengeTable.consumed_at: consumed_at})
+        )

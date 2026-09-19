@@ -1,17 +1,22 @@
 """Accounts in the PostgreSQL `users` table."""
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from job_status_found.features.auth.application.dtos.current_user import CurrentUser
 from job_status_found.features.auth.application.dtos.user_registration import UserRegistration
 from job_status_found.features.auth.domain.entities.user import User
-from job_status_found.features.auth.infrastructure.db.tables import UserTable
-
-_NEW_USER_ROLE = "user"
-"""Instance role every new account gets; only an admin tool may grant `admin`."""
+from job_status_found.features.auth.domain.value_objects.identity_provider import IdentityProvider
+from job_status_found.features.auth.domain.value_objects.user_role import UserRole
+from job_status_found.features.auth.infrastructure.db.tables import (
+    ExternalIdentityTable,
+    PasswordCredentialTable,
+    UserTable,
+)
 
 
 class SqlUserRepository:
@@ -49,7 +54,7 @@ class SqlUserRepository:
                     UserTable.email_normalized: registration.email.normalized,
                     UserTable.first_name: registration.first_name,
                     UserTable.last_name: registration.last_name,
-                    UserTable.role: _NEW_USER_ROLE,
+                    UserTable.role: UserRole.USER.value,
                     UserTable.created_at: registration.registered_at,
                     UserTable.updated_at: registration.registered_at,
                 }
@@ -74,14 +79,14 @@ class SqlUserRepository:
             The account, or `None` when no account has that email.
         """
         statement = (
-            select(UserTable.id, UserTable.email, UserTable.email_verified_at)
+            select(UserTable)
             .where(UserTable.email_normalized == email_normalized)
             .with_for_update()
         )
-        row = (await self._session.execute(statement)).one_or_none()
+        row = await self._session.scalar(statement)
         if row is None:
             return None
-        return User(id=row.id, email=row.email, email_verified_at=row.email_verified_at)
+        return self._to_user(row)
 
     async def replace_first_and_last_name(
         self, owner_id: UUID, registration: UserRegistration
@@ -102,4 +107,95 @@ class SqlUserRepository:
                     UserTable.updated_at: registration.registered_at,
                 }
             )
+        )
+
+    async def set_email_verified_at(self, owner_id: UUID, verified_at: datetime) -> None:
+        """Mark an account's email verified.
+
+        Args:
+            owner_id: The account whose mailbox was proved.
+            verified_at: The verification instant.
+        """
+        await self._session.execute(
+            update(UserTable)
+            .where(UserTable.id == owner_id)
+            .values(
+                {
+                    UserTable.email_verified_at: verified_at,
+                    UserTable.updated_at: verified_at,
+                }
+            )
+        )
+
+    async def find_current_user(self, owner_id: UUID) -> CurrentUser | None:
+        """Find the owner's profile and linked sign-in methods.
+
+        Args:
+            owner_id: The authenticated account.
+
+        Returns:
+            The current-user projection, or `None` when the account is gone.
+        """
+        row = await self._session.scalar(select(UserTable).where(UserTable.id == owner_id))
+        if row is None:
+            return None
+        has_password = (
+            await self._session.scalar(
+                select(PasswordCredentialTable.user_id).where(
+                    PasswordCredentialTable.user_id == owner_id
+                )
+            )
+            is not None
+        )
+        stored_providers = await self._session.scalars(
+            select(ExternalIdentityTable.provider)
+            .where(ExternalIdentityTable.user_id == owner_id)
+            .order_by(ExternalIdentityTable.provider)
+        )
+        linked_providers = tuple(IdentityProvider(provider) for provider in stored_providers)
+        return CurrentUser(
+            id=row.id,
+            email=row.email,
+            first_name=row.first_name,
+            last_name=row.last_name,
+            avatar_url=row.avatar_url,
+            locale=row.locale,
+            role=UserRole(row.role),
+            has_password=has_password,
+            linked_providers=linked_providers,
+        )
+
+    async def find_user_role(self, owner_id: UUID) -> UserRole | None:
+        """Find an account's current role.
+
+        Args:
+            owner_id: The authenticated account.
+
+        Returns:
+            Its current role, or `None` when the account is gone.
+        """
+        role = await self._session.scalar(select(UserTable.role).where(UserTable.id == owner_id))
+        return None if role is None else UserRole(role)
+
+    @staticmethod
+    def _to_user(row: UserTable) -> User:
+        """Map one stored row to the auth domain entity.
+
+        Args:
+            row: The mapped account row.
+
+        Returns:
+            The account entity.
+        """
+        return User(
+            id=row.id,
+            email=row.email,
+            email_verified_at=row.email_verified_at,
+            first_name=row.first_name,
+            last_name=row.last_name,
+            avatar_url=row.avatar_url,
+            locale=row.locale,
+            role=UserRole(row.role),
+            suspended_at=row.suspended_at,
+            deletion_requested_at=row.deletion_requested_at,
         )

@@ -1,5 +1,6 @@
 """Fixtures shared by the integration tests."""
 
+import json
 import re
 from collections.abc import Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
@@ -14,10 +15,25 @@ from sqlalchemy import URL, create_engine, text
 from sqlalchemy.pool import NullPool
 
 from job_status_found.app.app import create_app
+from job_status_found.features.auth.auth_settings import get_auth_settings
 from job_status_found.features.core import AppSettings, get_app_settings
 
 _TEST_DATABASE_NAME_PATTERN = re.compile(r"jsf_test_[0-9a-f]{32}")
 """The only database names this test harness may create or drop."""
+
+_TEST_AUTH_KEY = "integration-suite-auth-key-with-at-least-32-characters"
+"""The non-production HMAC and JWT key configured for integration application startup."""
+
+
+@pytest.fixture(autouse=True)
+def auth_application_configured(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Give every integration app the required non-production auth secrets."""
+    monkeypatch.setenv("JSF_AUTH_HMAC_KEY", _TEST_AUTH_KEY)
+    monkeypatch.setenv("JSF_AUTH_JWT_SIGNING_KEY_ID", "integration-1")
+    monkeypatch.setenv("JSF_AUTH_JWT_KEY_RING", json.dumps({"integration-1": _TEST_AUTH_KEY}))
+    get_auth_settings.cache_clear()
+    yield
+    get_auth_settings.cache_clear()
 
 
 def _require_disposable_database_name(database_name: str) -> None:

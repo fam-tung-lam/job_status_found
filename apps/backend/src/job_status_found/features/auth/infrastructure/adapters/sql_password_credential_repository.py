@@ -3,6 +3,7 @@
 from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -45,5 +46,20 @@ class SqlPasswordCredentialRepository:
                     PasswordCredentialTable.password_hash: statement.excluded.password_hash,
                     PasswordCredentialTable.updated_at: statement.excluded.updated_at,
                 },
+            )
+        )
+
+    async def find_password_hash(self, owner_id: UUID) -> str | None:
+        """Find the password hash of an account.
+
+        Args:
+            owner_id: The account whose password is requested.
+
+        Returns:
+            Its PHC string, or `None` when it has no password.
+        """
+        return await self._session.scalar(
+            select(PasswordCredentialTable.password_hash).where(
+                PasswordCredentialTable.user_id == owner_id
             )
         )

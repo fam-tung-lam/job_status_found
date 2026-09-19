@@ -15,6 +15,7 @@ dependencies = [
     "pwdlib[argon2]>=0.3.1",
     "pydantic-settings>=2.15.0",
     "pydantic[email]>=2.13.5",
+    "pyjwt[crypto]>=2.14.0",
     "sqlalchemy[asyncio]>=2.0.54",
     "uvicorn[standard]>=0.53.0",
 ]
@@ -63,6 +64,7 @@ convention = "google"
 # provider injects each one as its own `Depends` parameter (backend AGENTS.md).
 "src/job_status_found/features/*/application/use_cases/*.py" = ["PLR0913"]
 "src/job_status_found/features/*/di.py" = ["PLR0913", "PLR0917"]
+"src/job_status_found/features/*/presentation/http/*_controller.py" = ["PLR0913", "PLR0917"]
 
 [tool.ruff.format]
 docstring-code-format = true

@@ -7,6 +7,7 @@ from uuid import UUID
 from job_status_found.features.auth.application.dtos.new_email_challenge import (
     NewEmailChallenge,
 )
+from job_status_found.features.auth.domain.entities.email_challenge import EmailChallenge
 from job_status_found.features.auth.domain.value_objects.email_challenge_purpose import (
     EmailChallengePurpose,
 )
@@ -38,5 +39,40 @@ class EmailChallengeRepository(Protocol):
 
         Args:
             challenge: The challenge to store.
+        """
+        ...
+
+    async def lock_open_email_challenge(
+        self, owner_id: UUID, purpose: EmailChallengePurpose
+    ) -> EmailChallenge | None:
+        """Find and lock an owner's open challenge of a purpose.
+
+        Args:
+            owner_id: The user who must answer.
+            purpose: What answering proves.
+
+        Returns:
+            The locked open challenge, or `None` when none exists.
+        """
+        ...
+
+    async def register_wrong_email_challenge_answer(
+        self, challenge_id: UUID, *, attempt_count: int, consumed_at: datetime | None
+    ) -> None:
+        """Store a wrong answer count and consume the challenge when exhausted.
+
+        Args:
+            challenge_id: The challenge answered incorrectly.
+            attempt_count: The new wrong-answer count.
+            consumed_at: When exhausted, or `None` while attempts remain.
+        """
+        ...
+
+    async def consume_email_challenge(self, challenge_id: UUID, consumed_at: datetime) -> None:
+        """Mark a successfully answered challenge as consumed.
+
+        Args:
+            challenge_id: The answered challenge.
+            consumed_at: When it was answered.
         """
         ...

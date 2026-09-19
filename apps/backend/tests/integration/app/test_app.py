@@ -1,6 +1,9 @@
 """API tests of the application-wide middleware that `create_app` installs."""
 
+from fastapi import APIRouter
 from fastapi.testclient import TestClient
+
+from job_status_found.app.app import create_app, include_authenticated_feature_router
 
 
 class TestCreateAppCors:
@@ -62,3 +65,34 @@ class TestCreateAppCors:
         assert response.status_code == 200
         assert response.headers["access-control-allow-origin"] == origin
         assert response.headers["access-control-allow-credentials"] == "true"
+
+
+class TestIncludeAuthenticatedFeatureRouter:
+    """The authenticated-by-default feature-router composition rule."""
+
+    def test_an_unmarked_feature_route_rejects_an_anonymous_request(self) -> None:
+        """
+        Given: a feature route with no endpoint-level authentication dependency.
+        When: the application includes it through the feature-router helper.
+        Then: an anonymous request is rejected with the bearer challenge.
+        """
+        # Given: a feature route with no endpoint-level authentication dependency.
+        router = APIRouter()
+
+        @router.get("/unmarked")
+        async def unmarked_route() -> dict[str, bool]:
+            """Return success when the composition guard lets the request through."""
+            return {"ok": True}
+
+        # When: the application includes it through the feature-router helper.
+        app = create_app()
+        include_authenticated_feature_router(app, router)
+        with TestClient(app) as client:
+            response = client.get("/v1/unmarked")
+
+        # Then: an anonymous request is rejected with the bearer challenge.
+        assert (response.status_code, response.json()["code"]) == (
+            401,
+            "access_token_invalid",
+        )
+        assert response.headers["www-authenticate"] == "Bearer"
