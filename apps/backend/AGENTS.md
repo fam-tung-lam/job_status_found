@@ -102,6 +102,12 @@
   needs through a provider, such as `get_sign_up_min_response_time`.
 - A feature's use cases live in `application/use_cases/`, such as
   `check_health_use_case.py` with `CheckHealthUseCase`.
+- The application layer has no service classes or `services/` folder. Split
+  every independently invokable business operation into its own use case,
+  including an operation shared by other use cases. A use case reads or writes
+  state only through repository ports. When one use case injects another to
+  compose a larger transaction, the outer use case owns the unit-of-work
+  commit.
 - A collaborator with state or several operations, such as a repository, the
   unit of work, or an email sender, is a port: a `Protocol` in
   `application/ports/`, implemented by a class in `infrastructure/adapters/`.
@@ -152,7 +158,14 @@
     such as `SignUpRequest`, and `<subject>_response.py` with
     `<Subject>Response`, such as `HealthStatusResponse`. Use cases never
     receive or return these models.
-  - Failure-to-problem handlers live in `<feature>_exception_handlers.py`.
+  - A stateless operation that maps HTTP-specific values lives as one function
+    per file in `presentation/http/helpers/`, named after that function, such
+    as `build_session_input_from_request.py`.
+  - Failure-to-problem handlers live in
+    `presentation/http/exception_handlers/<feature>_exception_handlers.py`.
+  - Authentication and authorization dependencies live in
+    `presentation/http/guards/`, grouped by the concern they guard, such as
+    `authentication_guards.py`.
 - SQLAlchemy mapped tables live in
   `features/<feature>/infrastructure/db/tables/`, one `<name>_table.py` per
   table, re-exported from that package. Declare each column by annotation

@@ -109,7 +109,7 @@ respects the reader's time and intelligence.
 Expand an alias only when the entire user message is that alias:
 
 | Alias | Response                                                             |
-| ----- | -------------------------------------------------------------------- |
+|-------|----------------------------------------------------------------------|
 | `scr` | Reapply "Be concise without becoming cryptic" to the previous reply. |
 | `eli` | Explain it for an 10-year-old with simpler language and fewer words. |
 | `foc` | Return only the most important signal, value, or decision.           |
@@ -127,6 +127,11 @@ Expand an alias only when the entire user message is that alias:
   are `domain`, `application` (use cases and ports), `infrastructure`, and
   `presentation`. A feature holds only the layers it needs; the frontend
   `home` feature, for example, is presentation only.
+- The application layer uses use cases, never application service classes or
+  a `services/` folder. Each independently invokable business operation is one
+  `<Verb><Noun>UseCase` with one public `invoke` method. A use case accesses
+  state through repository ports and may inject another use case when it
+  delegates that use case's complete operation as part of a larger transaction.
 - A collaborator with state or several operations, such as a repository, is a
   port: an interface in `application/ports/` with an implementation in
   `infrastructure/adapters/`.
@@ -152,13 +157,13 @@ Expand an alias only when the entire user message is that alias:
   `hash_verification_code(code)` beat `new_secret()` and
   `keyed_hash(secret)`.
 - A method name tells the caller everything the call does:
-  - the entity it acts on, even when the class name implies it, so a call site
-    reads on its own: `users.lock_user_by_normalized_email(email)`, not
-    `users.lock_by_normalized_email(email)`;
-  - the condition under which it does nothing or returns nothing:
-    `create_unverified_user_unless_email_taken`, not `add_unverified`;
-  - the fields it writes when it writes only some:
-    `replace_first_and_last_name`, not `update_registration`.
+    - the entity it acts on, even when the class name implies it, so a call site
+      reads on its own: `users.lock_user_by_normalized_email(email)`, not
+      `users.lock_by_normalized_email(email)`;
+    - the condition under which it does nothing or returns nothing:
+      `create_unverified_user_unless_email_taken`, not `add_unverified`;
+    - the fields it writes when it writes only some:
+      `replace_first_and_last_name`, not `update_registration`.
 - Use the precise verb, never a generic one such as `save`, `record`,
   `update`, `handle`, `process`, or `check` alone. `create`, `replace`, `set`,
   `lock`, `issue`, and `find` each say more. A `find_` method returns nothing
@@ -172,8 +177,7 @@ Expand an alias only when the entire user message is that alias:
   as a hash.
 - Do not abbreviate: `error_message`, not `msg`; `FeatureScope`, not
   `FeatScope`; `log_record`, not `r`. Established acronyms such as `id`,
-  `url`, `http`, `smtp`, `hmac`, and `dto`, and the design system's size scale
-  (`xs` to `xl`), stay.
+  `url`, `http`, `smtp`, `hmac`, and `dto`, and the design system's size scale (`xs` to `xl`), stay.
 - Never use a word that suggests something else. `secret` for a code or token
   reads as a password or key. Generic words such as `data`, `info`, `value`,
   `kind`, `item`, `manager`, `helper`, `util`, or `common` say nothing about

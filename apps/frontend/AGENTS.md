@@ -70,6 +70,12 @@ Localization rules:
   composes. A widget does not build a `Scaffold`.
 - `lib/` code imports another feature only through its barrel
   `lib/features/<name>/<name>.dart`.
+- The application layer has no service classes or `services/` folder. Split
+  every independently invokable business operation into its own use case with
+  one public `invoke` method, including an operation shared by other use cases.
+  A use case accesses state or external systems only through repository ports
+  and may inject another use case when it delegates that use case's complete
+  operation.
 - A cubit is `<Subject>Cubit` and its sealed state is `<Subject>State`, such as
   `HealthStatusCubit` and `HealthStatusState`. State variants follow the root
   naming rule: `HealthStatusNotChecked`, `HealthStatusChecking`,
