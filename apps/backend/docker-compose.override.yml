@@ -10,6 +10,15 @@ services:
     # for synced source files.
     read_only: false
     restart: "no"
+    environment:
+      # Inside the Compose network Mailpit is always `mailpit:1025`, whatever
+      # `JSF_SMTP_PORT` publishes on the host.
+      JSF_SMTP_HOST: mailpit
+      JSF_SMTP_PORT: 1025
+      JSF_SMTP_SECURITY: none
+    depends_on:
+      mailpit:
+        condition: service_healthy
     develop:
       watch:
         - action: sync
@@ -32,4 +41,16 @@ services:
     # Reachable from the host for a backend started with `uv run`, and for SQL clients.
     ports:
       - "127.0.0.1:${JSF_DATABASE_PORT:-5432}:5432"
+    restart: "no"
+
+  # Catches every email the backend sends in development; nothing leaves the machine.
+  mailpit:
+    image: axllent/mailpit:v1.31.1@sha256:98b916bd3c8d61f7633a52d3ea2f58d00620cb01ca57ab59edde68c347a95365
+    ports:
+      # SMTP for a backend started on the host with `uv run`, and the web UI and API.
+      - "127.0.0.1:${JSF_SMTP_PORT:-1025}:1025"
+      - "127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025"
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 128m
     restart: "no"

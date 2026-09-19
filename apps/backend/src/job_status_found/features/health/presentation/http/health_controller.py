@@ -1,4 +1,4 @@
-"""Unversioned health endpoint."""
+"""`GET /health`: report that the process is alive."""
 
 from typing import Annotated
 
@@ -8,11 +8,11 @@ from job_status_found.features.health.application.use_cases.check_health_use_cas
     CheckHealthUseCase,
 )
 from job_status_found.features.health.di import get_check_health_use_case
-from job_status_found.features.health.presentation.http.health_status_response import (
+from job_status_found.features.health.presentation.http.schemas.health_status_response import (
     HealthStatusResponse,
 )
 
-router = APIRouter(tags=["health"])
+router = APIRouter()
 
 
 @router.get("/health")

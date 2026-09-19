@@ -1,7 +1,7 @@
 # Ticket plan: Authentication and authorization
 
 - Status: blocked
-- Updated: 2026-09-18 23:17 CEST
+- Updated: 2026-09-19 (T-02 implemented; DEC-7 added)
 - Source spec:
   [18_09_2026__auth-specification.md](../18_09_2026__auth-specification.md),
   whole document ("Authentication and authorization specification"), with
@@ -21,10 +21,11 @@ builds on it. After T-07, a flow with both an API and a page ships as one
 ticket (T-09, T-10, T-25). Phase 2 adds password change, session revocation,
 throttles, the breach check, and the purge task. Phase 3 adds Google through
 the browser flow, then the operations that need a fresh credential proof.
-Phase 4 adds the Android native sheet and email change. Seven tickets wait on a
-spec decision (DEC-1 to DEC-6), and T-25 waits on one through T-19. T-01 is
-implemented. The other 17 tickets can be built in file order, once DEC-0
-confirms the spec.
+Phase 4 adds the Android native sheet and email change. Eight tickets wait on a
+spec decision (DEC-1 to DEC-7), and T-25 waits on one through T-19. T-01 and
+T-02 are implemented. T-03 waits on DEC-7, which its T-02 security review
+raised, and every later backend ticket builds on T-03. Once DEC-0 and DEC-7
+are settled, the other tickets can be built in file order.
 
 ## Dependency map
 
@@ -37,7 +38,7 @@ flowchart LR
     T01["T-01 Schema migrates"]
     T02["T-02 Sign-up emails a code"]
     T16["T-16 Purge task"]
-    T03["T-03 Code opens a session"]
+    T03["T-03 Code opens a session<br>(waits on DEC-7)"]
     T04["T-04 Token reads /me"]
     T05["T-05 Password sign-in API"]
     T06["T-06 Refresh and sign-out API"]
@@ -97,7 +98,7 @@ flowchart LR
     T19 --> T25
 
     classDef waitsOnDecision stroke-dasharray: 6 4
-    class T08,T11,T19,T22,T23,T24,T26 waitsOnDecision
+    class T03,T08,T11,T19,T22,T23,T24,T26 waitsOnDecision
 ```
 
 ## Ordered tickets
@@ -106,7 +107,7 @@ flowchart LR
 | ----- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------ | ---------------------------------------------------- |
 | 1     | [T-01](01-auth-schema-migrates.md)                               | An operator migrates a fresh database to the eight auth tables                                   | None               | §10, §14, ERD                                        |
 | 2     | [T-02](02-sign-up-emails-verification-code.md)                   | Sign-up emails a code or a notice and never reveals existing accounts                            | T-01               | §6.1, §6.2, §7, §9, §10                              |
-| 3     | [T-03](03-verification-code-opens-session.md)                    | The emailed code verifies the email and opens a session                                          | T-02               | §5, §6.1, §7                                         |
+| 3     | [T-03](03-verification-code-opens-session.md)                    | The emailed code verifies the email and opens a session                                          | T-02, DEC-7        | §5, §6.1, §7                                         |
 | 4     | [T-04](04-access-token-reads-current-user.md)                    | An access token authenticates requests and reads the signed-in user                              | T-03               | §5, §7, §8 rules 1, 2, and 4, §10                    |
 | 5     | [T-05](05-password-sign-in-api.md)                               | A verified person signs in with email and password through the API                               | T-03               | §6.2, §7, §9, §10                                    |
 | 6     | [T-06](06-refresh-rotation-and-sign-out-api.md)                  | Sessions refresh by rotation, detect reuse, and end on sign-out                                  | T-04               | §5, §7, §10                                          |
@@ -136,7 +137,7 @@ flowchart LR
 ### Constraints every ticket follows
 
 - **Structure.** Backend code lives in `features/auth/` with the layers of
-  §10; shell files live in `app/` and `db/`. App code lives in
+  §10; shared code lives in `features/core/` and composition in `app/`. App code lives in
   `lib/features/auth/` with the layers of §11.1. Naming follows the root
   `AGENTS.md`: `<Verb><Noun>UseCase` with one `invoke`, `<Operation>Failure`
   with one variant per cause, and state names that say what is known.
@@ -181,7 +182,7 @@ starts.
 | ID   | Reading                                                                                                                                                                                                                                                                                 | Tickets          |
 | ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- |
 | R-1  | The spec's `../../../.env.example` link resolves to the repository-root file, which holds tool keys. The backend reads `apps/backend/.env`, so `JSF_AUTH_*` placeholders go into `apps/backend/.env.example`.                                                                         | All backend      |
-| R-2  | The 60-second interval between verification-code sends (§5) applies to every send: sign-up's third branch, resend, and password sign-in. A suppressed send keeps the open code valid, although the §6.1 diagram shows the third branch replacing the code.                            | T-02, T-03, T-05 |
+| R-2  | The 60-second interval between verification-code sends (§5) applies to every send: sign-up's third branch, resend, and password sign-in. A suppressed send keeps the open code valid. T-02 also leaves the password and name unchanged when sign-up's send is suppressed; §6.1 now says so.  | T-02, T-03, T-05 |
 | R-3  | Each notice email ships with the flow that triggers it, although §13 lists "other notice emails" under Phase 2 without naming them.                                                                                                                                                   | T-02, T-10, T-12, T-18, T-23, T-26 |
 | R-4  | Phase 1 hides only the Google button (row 4), as §13 says. The divider label (row 5) shows without a button above it until T-19.                                                                                                                                                      | T-07, T-08       |
 | R-5  | `AppProviderSignInButton` and the Google mark land with their first consumer, T-19, instead of with Phase 1's other design system additions.                                                                                                                                          | T-07, T-19       |
@@ -220,9 +221,11 @@ starts.
 | RISK-5 | Shipped Safari may reject `Secure` cookies on `http://localhost` (§15)                                                                                            | Local web sign-in fails unless `JSF_AUTH_COOKIE_SECURE=false` is set            | T-03 implementer       |
 | RISK-6 | The minimum password length is 12 by recommendation; NIST SP 800-63B-4 asks for 15 without MFA (§15)                                                             | Changing it touches the backend setting and the app's validation and helper text in T-08 and T-10 | PTLam        |
 | RISK-7 | The headline and subtitle copy are Simplify's product claims (§15)                                                                                                | Replace both `AuthStrings` values before release                                | PTLam                  |
-| RISK-8 | Versions of `pydantic[email]`, `crypto`, and `url_launcher` are unchecked (§15)                                                                                    | The implementer confirms them when adding each package                          | T-02, T-19, T-08 implementers |
+| RISK-8 | Versions of `crypto` and `url_launcher` are unchecked (§15). `pydantic[email]` resolved `email-validator` 2.3.0 in T-02                                          | The implementer confirms them when adding each package                          | T-19, T-08 implementers |
 | RISK-9 | The spec gives no URLs for the Terms of Use and Privacy Policy                                                                                                    | T-08's legal links open whatever `AppSettings` is given; the documents must exist before release | PTLam   |
 | RISK-10 | Provider consoles cannot be mocked (§14); T-17, T-19, and T-25 need a Google Cloud project with the §12 clients                                                  | Manual checks for those tickets wait on console setup                           | PTLam                  |
+| RISK-11 | Each new verification code starts with 5 fresh attempts, so an attacker who re-signs up every 60 seconds gets about 7,200 guesses a day at one address's 6-digit code, about 0.7% a day of verifying an account for a mailbox they do not hold. The T-14 IP throttle does not stop a distributed attacker | A verified pre-registered account later receives the owner's Google identity through §6.5 | T-03 implementer: cap wrong codes per user across replaced challenges, for example with `auth_events` rows |
+| RISK-12 | The hash limiter's queue has no bound, and once the queue pushes a sign-up past the 500 ms floor, its branch timing shows again under load                        | Sign-up latency grows without limit under a flood, and a patient attacker may regain a statistical timing signal | T-14 implementer: bound the wait and answer 429 or 503 |
 
 ## Blocking decisions
 
@@ -238,3 +241,4 @@ remove the matching `DEC` from the waiting tickets.
 | DEC-4 | Decide whether setting a first password revokes the user's other sessions and sends the "password changed" notice. §6.2 states both only for changing an existing password.                                                                                                                                                                  | PTLam | T-22                             | Social-only users can add a password only through the reset link (T-10)                                   |
 | DEC-5 | Decide what `POST /oauth/exchange` does and returns for purposes `link` and `reauthenticate`. §7 promises a `TokenPair`, and §6.4 shows a new session, which fits `sign_in` only. Also name the failure when the user already has a Google identity (`(user_id, provider)` is unique), and when a `reauthenticate` identity belongs to another user or to nobody. | PTLam | T-23, T-24                       | People cannot link Google to an existing account, and social-only users cannot re-authenticate for T-20, T-21, or T-26 |
 | DEC-6 | Decide the email change details: the response when the new address belongs to another account, given the §9 enumeration rule; whether confirming revokes other sessions; whether `change_email` codes share the verification code's 15 minutes, 5 attempts, and 60-second interval; and whether `email_verified_at` changes.              | PTLam | T-26                             | Email addresses cannot change                                                                              |
+| DEC-7 | Decide which password a verification code confirms. The mailbox owner cannot tell, so they may verify an account an attacker can sign in to. An attacker can sign up after the owner, once 60 seconds have passed, which replaces the password and mails a new code. Or the attacker signs up first and repeats every 60 seconds, so the owner's own sign-up lands inside the interval and changes nothing. Recommendation: the confirm request carries the password, and the backend checks it before it sets `email_verified_at`. Sign-in's `email_verification_required` path already holds the password. | PTLam | T-03                             | Building T-03 as specified keeps the takeover path open; T-03 and everything after it wait                  |

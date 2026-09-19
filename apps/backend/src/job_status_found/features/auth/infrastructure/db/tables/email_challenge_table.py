@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKeyConstraint, Index, text
 from sqlalchemy.orm import Mapped
 
-from job_status_found.db.db import Base, SurrogateKey
+from job_status_found.features.core import Base, SurrogateKey
 
 
 class EmailChallengeTable(Base):

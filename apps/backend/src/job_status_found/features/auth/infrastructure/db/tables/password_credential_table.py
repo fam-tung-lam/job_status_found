@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy import ForeignKeyConstraint, PrimaryKeyConstraint
 from sqlalchemy.orm import Mapped
 
-from job_status_found.db.db import Base
+from job_status_found.features.core import Base
 
 
 class PasswordCredentialTable(Base):

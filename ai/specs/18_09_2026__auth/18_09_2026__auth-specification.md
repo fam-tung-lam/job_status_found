@@ -1,7 +1,7 @@
 # Authentication and authorization specification
 
-Status: proposed. Only the schema and its first migration are implemented
-(ticket T-01). Package versions and provider facts were verified on
+Status: proposed. The schema and its first migration (ticket T-01) and
+email sign-up (T-02) are implemented. Package versions and provider facts were verified on
 2026-09-18; section 15 lists what is still unverified.
 
 Sign-up and sign-in with email and password and Google, for
@@ -80,7 +80,7 @@ flowchart LR
         AuthControllers["auth presentation/http"]
         AuthUseCases["auth use cases and ports"]
         AuthAdapters["auth infrastructure adapters"]
-        PrincipalDependency["app/authentication.py<br>principal, role, recent-auth guards"]
+        PrincipalDependency["auth facade guards<br>principal, role, recent-auth"]
         OtherFeatures["other features"]
     end
 
@@ -141,7 +141,7 @@ Dart `^3.13.2` unless noted.
 | ORM, driver, migrations | `sqlalchemy[asyncio]`, `psycopg[binary]`, `alembic` | 2.0.54, 3.3.6, 1.20.0 | psycopg 3 serves the async app and the sync Alembic run with one driver                                                                                                                     |
 | Email delivery          | `aiosmtplib`                                        | 5.1.3                 | Behind a port, so a provider API can replace SMTP                                                                                                                                           |
 | Per-IP throttle         | `limits`                                            | 5.8.0                 | Async in-memory storage; correct for one worker. Swap its storage for Redis when a second worker appears                                                                                    |
-| Email syntax            | `pydantic[email]`                                   | -                     | Enables `EmailStr`; version not checked                                                                                                                                                     |
+| Email syntax            | `pydantic[email]`                                   | 2.3.0                 | Enables `EmailStr`; the version is that of `email-validator`, which the extra installs                                                                                                     |
 
 Not used: `fastapi-users` (section 1), `passlib` (last release 2020),
 `slowapi` (pre-1.0 wrapper over `limits`; we call `limits` directly),
@@ -237,7 +237,7 @@ Every value is a setting; these are the defaults.
 | Session, "Remember this device" on  | 30 days idle, 180 days absolute                                                                     |
 | Session, "Remember this device" off | 24 hours idle, 7 days absolute; on the web the cookie has no `Max-Age`, so it ends with the browser |
 | Recent-authentication window        | 10 minutes                                                                                          |
-| Email verification code             | 15 minutes, 5 attempts, 60 seconds between sends                                                    |
+| Email verification code             | 15 minutes, 5 attempts, 60 seconds between sends; the existing-account notice keeps the same pace   |
 | Password reset link                 | 30 minutes, single use, 60 seconds between sends                                                    |
 | OAuth authorization attempt         | 10 minutes                                                                                          |
 | OAuth exchange code                 | 60 seconds, single use                                                                              |
@@ -279,9 +279,11 @@ sequenceDiagram
         AuthApi ->> MailServer: SENDS 6-digit code
     else Email belongs to a verified user
         AuthApi ->> MailServer: SENDS "you already have an account" notice
-    else Email belongs to an unverified user
-        AuthApi ->> Database: UPDATES password hash, name, and code hash
+    else Email belongs to an unverified user, last code over 60 seconds ago
+        AuthApi ->> Database: UPDATES password hash, name, terms, and code hash
         AuthApi ->> MailServer: SENDS 6-digit code
+    else Email belongs to an unverified user, last code within 60 seconds
+        AuthApi ->> AuthApi: CHANGES nothing and SENDS nothing
     end
 
     AuthApi -->> FlutterApp: RESPONDS 202 with the same body in every branch
@@ -294,10 +296,22 @@ sequenceDiagram
 ```
 
 - The 202 body and timing are the same in every branch, so the endpoint does not
-  reveal which emails have accounts.
-- The third branch overwrites the unverified user's password and name. Nobody
-  has proven that mailbox yet, so the latest sign-up wins, and whoever holds the
-  mailbox decides by entering the code.
+  reveal which emails have accounts. Every branch hashes the password, the
+  email goes out after the response, and the response waits for a minimum
+  response time (500 ms), because the branches' own database work differs by
+  a few milliseconds.
+- The third branch overwrites the unverified user's password, name, and
+  accepted terms, and mails a new code. Nobody has proven that mailbox yet, so
+  the latest sign-up wins, and the code decides which account gets verified.
+- Within 60 seconds of the last code, the third branch changes nothing, so the
+  earliest sign-up wins there. A password replaced without a new email would
+  ride on the code the mailbox owner already holds.
+- Neither order lets the mailbox owner tell which password a code confirms:
+  an attacker can sign up after the owner, once 60 seconds have passed, or
+  before the owner, and then repeat every 60 seconds. DEC-7 in the ticket plan
+  tracks the fix.
+- The existing-account notice goes out at most once per 60 seconds per user,
+  paced by its `auth_events` row, so the endpoint cannot flood an inbox.
 - A wrong code increments `attempt_count`; the fifth wrong code consumes the
   challenge.
 
@@ -538,8 +552,12 @@ access token; "Recent" adds the recent-authentication rule. `TokenPair` is
 - Every endpoint can also fail with 422 (invalid input) and 429
   `too_many_attempts` with a `Retry-After` header.
 - Errors use RFC 9457 `application/problem+json` with one extension member,
-  `code`, holding the stable values above. The app switches on `code`, never on
-  `detail`. A 401 carries `WWW-Authenticate: Bearer`.
+  `code`, holding the stable values above. `type` is `about:blank`, so `title`
+  is the status phrase. The app switches on `code`, never on `detail`. A 401
+  carries `WWW-Authenticate: Bearer`.
+- A 422 has the code `invalid_input` and a second extension member, `errors`,
+  listing each invalid field's `loc`, `msg`, and `type`. It never repeats a
+  submitted value, unlike FastAPI's default body.
 - Status mapping: 401 for `invalid_credentials`, `provider_token_invalid`,
   `refresh_token_invalid`, `session_ended`; 403 for
   `email_verification_required`, `recent_authentication_required`,
@@ -575,7 +593,7 @@ filter, and these five rules stay.
 | Concern             | Control                                                                                                                                                                                                                                                                                                                                                         |
 |---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Password policy     | 12 to 128 characters, counted in Unicode code points, no composition rules, no forced rotation. Rejected when found in the Pwned Passwords range API (k-anonymity: only the first 5 SHA-1 hex characters leave the server). The check fails open on an outage. ASVS 5.0 requires 8 and recommends 15; NIST SP 800-63B-4 requires 15 without MFA. See section 15 |
-| Enumeration         | Sign-up, resend, and reset request answer identically for known and unknown emails. Sign-in uses one failure code and equalized timing                                                                                                                                                                                                                          |
+| Enumeration         | Sign-up, resend, and reset request answer identically for known and unknown emails. Sign-up also answers no sooner than a minimum response time. Sign-in uses one failure code and equalized timing. An email whose NFKC form differs from itself is refused, so no second mailbox can share an account                                                    |
 | Account throttle    | 5 `sign_in_failed` events per `identifier_hash` in 15 minutes block further password checks for that identifier for 15 minutes. A block, not a permanent lock, so it cannot be used to lock a victim out for good                                                                                                                                               |
 | IP throttle         | `limits` moving window per route group: sign-in 10/min, sign-up 5/min, code confirm 10/15 min, reset request 3/5 min, exchange 20/min. The client IP comes from `X-Forwarded-For` only when Uvicorn's `--forwarded-allow-ips` names the proxy                                                                                                                   |
 | CORS                | `allow_credentials=True`, the existing origin regex, methods `GET, POST, PUT, DELETE`, headers `Authorization, Content-Type`. `app/app.py` currently allows `GET` only                                                                                                                                                                                          |
@@ -587,17 +605,29 @@ filter, and these five rules stay.
 
 ## 10. Backend implementation
 
-The shell gains a `db/` package beside `app/`: `db/db.py` (declarative `Base`
+The shell gains `app/alembic_metadata.py` (the metadata Alembic migrates,
+filled by every feature's tables package), plus `alembic.ini` and
+`migrations/`. Code that several features or the shell share lives in the
+`features/core` feature, never in `app/`, which no feature imports. Its facade
+publishes the database shell (`infrastructure/db/db.py`: declarative `Base`
 with the column type map, async engine lifespan, session factory, request
-session dependency) and `db/alembic_metadata.py` (the metadata Alembic
-migrates). It also gains `app/authentication.py` (the three guards from section
-8, built on the auth facade), plus `alembic.ini` and `migrations/`. The first
+session dependency), the `Clock` and `UnitOfWork` ports with their providers,
+`SmtpEmailSenderClient`, which sends any plain-text email and raises
+`EmailDeliveryFailure`, with core's `AppSettings` (`JSF_SMTP_*`) configuring it,
+the RFC 9457 models and helpers, the 422 handler, the FastAPI class whose
+OpenAPI document describes them, and `settings_config`. The auth adapter
+`smtp_auth_email_sender.py` writes the auth emails and sends them through that
+client. The three guards from section 8 are built on the auth use
+cases, so the auth feature publishes them through its facade from
+`presentation/http/authentication_guards.py`. The first
 revision, `0001`, creates the eight tables.
 
 ```text
 features/auth/
-├── __init__.py            # facade: AuthenticatedPrincipal, UserRole, AuthenticateAccessTokenUseCase
+├── __init__.py            # facade: AuthenticatedPrincipal, UserRole, AuthenticateAccessTokenUseCase,
+│                          # get_authenticated_principal, require_role, require_recent_authentication
 ├── di.py                  # get_<verb>_<noun>_use_case providers
+├── auth_settings.py       # AuthSettings (JSF_AUTH_*) and get_auth_settings()
 ├── application/
 │   ├── dtos/              # sign_up_input.py, token_pair.py, verified_provider_identity.py, ...
 │   ├── ports/             # one Protocol per file, listed below
@@ -607,27 +637,39 @@ features/auth/
 │   ├── value_objects/     # email_address.py, identity_provider.py, client_kind.py, user_role.py
 │   └── failures/          # one module per operation, listed below
 ├── infrastructure/
-│   ├── adapters/          # sql_*_repository.py, argon2_password_hasher.py, jwt_access_token_codec.py,
-│   │                      # oidc_id_token_verifier.py, authlib_authorization_code_client.py,
-│   │                      # smtp_auth_email_sender.py,
-│   │                      # pwned_passwords_breach_checker.py, limits_request_throttle.py
+│   ├── adapters/          # sql_*_repository.py, argon2_password_hasher.py,
+│   │                      # secure_random_verification_code_generator.py,
+│   │                      # hmac_verification_code_hasher.py,
+│   │                      # jwt_access_token_codec.py, oidc_id_token_verifier.py,
+│   │                      # authlib_authorization_code_client.py, smtp_auth_email_sender.py,
+│   │                      # deferred_auth_email_sender.py, pwned_passwords_breach_checker.py,
+│   │                      # limits_request_throttle.py
 │   └── db/tables/         # one <name>_table.py per table in auth-erd.md
 └── presentation/
-    ├── http/              # auth_controller.py, oauth_controller.py, sessions_controller.py,
-    │                      # and one <Subject>Request/Response per body
+    ├── http/              # auth_router.py (prefix /auth), one <operation>_controller.py per
+    │   │                  # endpoint (sign_up_controller.py, ...), auth_exception_handlers.py
+    │   └── schemas/       # one <Subject>Request or <Subject>Response per module
     └── tasks/             # purge_auth_records.py
 ```
 
 **Ports** (`application/ports/`): `UserRepository`, `PasswordCredentialRepository`,
 `ExternalIdentityRepository`, `SessionRepository`, `EmailChallengeRepository`,
-`OAuthAuthorizationAttemptRepository`, `AuthEventRepository`, `PasswordHasher`,
-`AccessTokenCodec`, `IdTokenVerifier`, `AuthorizationCodeClient`,
-`AuthEmailSender`,
-`BreachedPasswordChecker`, `RequestThrottle`, `Clock`, `SecretGenerator`.
-`Clock` and `SecretGenerator` make expiry and token values deterministic in
-tests.
+`OAuthAuthorizationAttemptRepository`, `AuthEventRepository`,
+`PasswordHasher`, `VerificationCodeGenerator`, `VerificationCodeHasher`,
+`AccessTokenCodec`,
+`IdTokenVerifier`, `AuthorizationCodeClient`, `AuthEmailSender`,
+`BreachedPasswordChecker`, `RequestThrottle`. Use cases also take `UnitOfWork`
+and `Clock` from `features/core`, whose `di.py` provides them. `UnitOfWork`
+commits the session every SQL repository of one operation shares.
+`VerificationCodeGenerator` creates the 6-digit codes, and
+`VerificationCodeHasher` computes their HMAC-SHA-256 with the server key. Every
+other random value gets its own generator and, where it is stored, its own
+hasher, named after that value, such as for reset link tokens, refresh tokens,
+and exchange codes, never one generic "secret" generator. `Clock` and these generators make expiry and token values
+deterministic in tests.
 
-**Use cases** (`<Verb><Noun>UseCase`, one public `invoke`):
+**Use cases** (`<Verb><Noun>UseCase`, one public `invoke`, every port passed as
+its own keyword-only constructor argument):
 `SignUpWithPasswordUseCase`, `ConfirmEmailVerificationUseCase`,
 `ResendEmailVerificationUseCase`, `SignInWithPasswordUseCase`,
 `SignInWithIdTokenUseCase`, `StartOAuthAuthorizationUseCase`,
@@ -642,7 +684,9 @@ tests.
 `PurgeAuthRecordsUseCase`.
 
 Each write use case owns one transaction and commits once. Email is sent after
-the commit; a send failure is logged and the person uses "resend".
+the commit; a send failure is logged and the person uses "resend". An HTTP
+request hands its email to the request's background tasks, so it leaves after
+the response and a process stop can lose it.
 
 **Failures** (`<Operation>Failure` with one variant per cause), for example
 `PasswordSignInFailure` with `PasswordSignInInvalidCredentials`,
@@ -655,12 +699,18 @@ provider with issuer values, JWKS URL, audience allow-list, and whether a nonce
 is mandatory, so a later provider needs configuration, not code. It fetches JWKS with `httpx2`, caches it for an hour, refetches
 once on an unknown `kid`, and pins `RS256`. No provider-specific SDK is needed.
 
-**Settings** (`JSF_AUTH_*` in `app_settings.py`): issuer and audience, JWT key
-ring, HMAC key, every lifetime in section 5, cookie name and
+**Settings** (`JSF_AUTH_*`, the `AuthSettings` class in
+`features/auth/auth_settings.py`):
+issuer and audience, JWT key ring, HMAC key, every lifetime in section 5, the
+password minimum length, the sign-up minimum response time, cookie name and
 `secure` flag, client redirect allow-list, web app base URL, terms version,
-SMTP host, port, credentials, and sender, and per provider the client ids,
-secrets. A provider with no client
-id is disabled and its endpoints fail with `provider_not_configured`.
+and per provider the client ids, secrets. `AuthSettings` is separate from the
+database settings, so a migration runs without the auth secrets; the
+application checks it at start-up. The SMTP server is core's: host, port,
+security (`none`, `starttls`, or `tls`), credentials, and sender as
+`JSF_SMTP_*` in core's `AppSettings`, where security `none` refuses credentials.
+A provider with no client id is disabled and its endpoints fail with
+`provider_not_configured`.
 
 **Purge task.** `presentation/tasks/purge_auth_records.py` runs
 `PurgeAuthRecordsUseCase`: the retention table in the ERD file, plus step 2 of
@@ -668,8 +718,12 @@ section 6.6. Run it hourly as `python -m ...purge_auth_records` from the host's
 scheduler or a small Compose service. It is idempotent, so overlapping runs are
 harmless.
 
-**Compose.** `docker-compose.override.yml` gains Mailpit for development mail;
-`../../../.env.example` gains the `JSF_AUTH_*` names with placeholder values.
+**Compose.** `docker-compose.override.yml` gains Mailpit for development mail,
+with SMTP on `JSF_SMTP_PORT` (1025) and its web UI and API on
+`MAILPIT_WEB_PORT` (8025); the development backend reaches it as
+`mailpit:1025`. `apps/backend/.env.example` gains the `JSF_AUTH_*` and
+`JSF_SMTP_*` names with placeholder values, and `docker-compose.yml`
+passes them to the backend.
 Migrations run as a one-off `alembic upgrade head` from the host, the
 development container, or the runtime image, which ships `alembic.ini` and
 `migrations/`. The application does not migrate at startup, and it starts
@@ -946,8 +1000,8 @@ Each phase ships with its tests and leaves the app working.
 Project rules apply: paths mirror source, Given-When-Then comments, mocks only
 at the lowest boundary we do not control.
 
-- **Backend unit.** Every use case against in-memory ports with a fixed `Clock`
-  and `SecretGenerator`. Required cases: each branch of section 6.5, each of the
+- **Backend unit.** Every use case against mocked ports with a fixed `Clock`
+  and fixed code and token generators. Required cases: each branch of section 6.5, each of the
   five refresh outcomes in section 5, the three sign-up branches, code attempt
   exhaustion, the reset request branches, a weak password that leaves the
   reset token usable, and every lifetime boundary.
@@ -978,7 +1032,8 @@ at the lowest boundary we do not control.
 | Sign in with Apple on iOS                     | Risk. App Store guideline 4.8 requires a privacy-preserving login beside Google on iOS. Add Apple before the first App Store release                                                    |
 | Google PKCE, confidential client              | Advertised in discovery, not documented for the web-server flow. Send it; drop it if Google rejects it                                                                                  |
 | Safari, `Secure` cookie on `http://localhost` | A WebKit fix landed in April 2026; which shipped Safari has it is unverified. The development cookie setting covers it                                                                  |
-| `pydantic[email]`, `crypto`, `url_launcher`   | Versions not checked                                                                                                                                                                    |
+| `crypto`, `url_launcher`                      | Versions not checked                                                                                                                                                                    |
+| Which password a verification code confirms   | Open, DEC-7 in the ticket plan. The mailbox owner cannot tell which password a code confirms: a later sign-up over 60 seconds after the last code replaces the password and mails a new code, and an earlier sign-up, repeated every 60 seconds, keeps the owner's own sign-up inside the interval, where it changes nothing. Recommendation: the confirm request also carries the password, and the backend checks it before it verifies the email |
 | Headline and subtitle copy                    | Taken from the mock-ups as asked. "Apply to jobs in 1-click" and "recruiter-approved AI" are Simplify's product claims; replace both `AuthStrings` values when JSV has its own          |
 | Legal line on the sign-in page                | The mock-up shows it on sign-up only, but the Google button on the sign-in page   can also create an account. Recommendation: show the same line under the sign-in page's Google button |
 | Mock-up colors and pill shape                 | Not copied (section 11.2). Adopting them is a design system change to the primary color and control radius, not an auth change                                                          |

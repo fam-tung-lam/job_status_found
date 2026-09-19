@@ -5,7 +5,7 @@
   kind, lifetimes, `remember_me`), §6.1 (confirm part), §7
   `POST /email-verification/confirm`, `POST /email-verification/resend`, §9
   (enumeration)
-- Blocked by: T-02
+- Blocked by: T-02, DEC-7
 - Blocks: T-04, T-05
 
 ## Outcome
@@ -24,6 +24,17 @@ refresh token only as an `HttpOnly` cookie.
   `sessions.is_persistent`; it picks the lifetimes (§5).
 - A script on the web page must never read a long-lived credential (D-3).
 - This ticket introduces session issuance. T-05, T-17, and T-25 reuse it.
+- T-02 left these for this ticket to reuse: the problem helpers in the
+  `features.core` facade and the exception handlers registered in
+  `app/app.py`, `AuthSettings`, the `EmailChallengeRepository`,
+  `VerificationCodeGenerator`, `VerificationCodeHasher`, `Clock`, and
+  `AuthEmailSender` ports with
+  their adapters, the deferred mail after the response, and the sign-up's
+  minimum response time, which resend needs for the same enumeration reason.
+- DEC-7 may add the password to the confirm request, because the code alone
+  cannot tell the mailbox owner which password it confirms. RISK-11 asks for a cap on
+  wrong codes per user across replaced challenges, because each new code
+  otherwise starts with 5 fresh attempts.
 
 ## In scope
 

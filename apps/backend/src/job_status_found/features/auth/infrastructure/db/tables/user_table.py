@@ -5,7 +5,7 @@ from datetime import datetime
 from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import Mapped
 
-from job_status_found.db.db import Base, SurrogateKey
+from job_status_found.features.core import Base, SurrogateKey
 
 
 class UserTable(Base):

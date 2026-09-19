@@ -1,0 +1,1 @@
+"""Auth entities with identity."""

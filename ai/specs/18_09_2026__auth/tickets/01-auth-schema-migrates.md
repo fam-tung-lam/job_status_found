@@ -31,7 +31,9 @@ downgrade removes them.
   and `alembic` 1.20.0 (§4).
 - `db/db.py`: declarative `Base`, async engine, session factory, and the
   request session dependency (§10). The application lifespan owns the engine.
-- `db/alembic_metadata.py`, `alembic.ini`, and `migrations/` (§10).
+  It now lives in `features/core/infrastructure/db/db.py`.
+- `db/alembic_metadata.py`, `alembic.ini`, and `migrations/` (§10). The
+  metadata module now lives in `app/alembic_metadata.py`.
 - One `<name>_table.py` per ERD table in
   `features/auth/infrastructure/db/tables/`.
 - The first revision, with every ERD convention:

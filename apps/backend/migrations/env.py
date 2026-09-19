@@ -10,12 +10,15 @@ from alembic import context
 from sqlalchemy import Connection, create_engine
 from sqlalchemy.pool import NullPool
 
-from job_status_found.app.app_settings import get_settings
-from job_status_found.db.alembic_metadata import metadata
+from job_status_found.app.alembic_metadata import metadata
+from job_status_found.features.core import get_settings
 
-# A revision that alters a live table fails after waiting this long for its
-# lock, instead of queuing every request behind it.
 _SET_LOCK_TIMEOUT = "SET LOCAL lock_timeout = '5s'"
+"""SQL that makes a revision fail after waiting 5 s for a table lock.
+
+Without it, a revision that alters a live table would queue every request
+behind its lock.
+"""
 
 config = context.config
 
