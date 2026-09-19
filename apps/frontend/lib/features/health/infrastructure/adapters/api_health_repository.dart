@@ -1,4 +1,3 @@
-import 'package:job_status_found/features/health/application/dtos/health_status_response_dto.dart';
 import 'package:job_status_found/features/health/application/ports/health_repository.dart';
 import 'package:job_status_found/features/health/domain/failures/health_check_failure.dart';
 import 'package:job_status_found/features/health/infrastructure/clients/health_api_client.dart';
@@ -20,7 +19,7 @@ final class const ApiHealthRepository(
   @override
   Future<void> checkBackendHealth() async {
     try {
-      _throwUnlessStatusIsOk(await _healthApiClient.fetchHealthStatus());
+      await _healthApiClient.fetchHealthStatus();
     } on JobStatusFoundHttpClientException catch (exception, stackTrace) {
       Error.throwWithStackTrace(_toHealthCheckFailure(exception), stackTrace);
     } on FormatException catch (_, stackTrace) {
@@ -28,15 +27,6 @@ final class const ApiHealthRepository(
         const HealthCheckUnexpectedResponse(),
         stackTrace,
       );
-    }
-  }
-
-  /// Returns normally when the wire status word is `ok`.
-  ///
-  /// Throws [FormatException] for a word this app does not know.
-  void _throwUnlessStatusIsOk(HealthStatusResponseDto response) {
-    if (response.status != 'ok') {
-      throw FormatException('Unknown health status in $response.');
     }
   }
 

@@ -18,6 +18,9 @@ abstract final class AppSizes._() {
   /// 40 pixels: the height of an extra-large control.
   static const double controlXl = 40;
 
+  /// 48 pixels: a roomy control and the minimum touch target.
+  static const double controlXxl = 48;
+
   /// 12 pixels: an icon inside a badge.
   static const double iconXs = 12;
 
@@ -38,4 +41,7 @@ abstract final class AppSizes._() {
 
   /// 384 pixels: the widest a centered block of text grows.
   static const double proseMaxWidth = 384;
+
+  /// 400 pixels: the widest an authentication form grows.
+  static const double formMaxWidth = 400;
 }

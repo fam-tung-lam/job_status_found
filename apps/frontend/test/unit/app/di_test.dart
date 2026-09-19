@@ -4,6 +4,8 @@ import 'package:job_status_found/app/app_settings.dart';
 import 'package:job_status_found/app/di.dart';
 import 'package:job_status_found/features/health/health.dart';
 
+import '../../test_doubles/in_memory_job_status_found_token_storage.dart';
+
 void main() {
   late GetIt getIt;
 
@@ -21,7 +23,11 @@ void main() {
       final settings = AppSettings.fromApiBaseUrl('http://localhost:8000');
 
       // When: the app registers its dependencies.
-      configureDependencies(getIt, settings);
+      configureDependencies(
+        getIt,
+        settings,
+        tokenStorage: InMemoryJobStatusFoundTokenStorage(),
+      );
 
       // Then: the home page's health check use case can be built from the
       // container.

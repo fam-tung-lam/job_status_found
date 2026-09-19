@@ -1,4 +1,5 @@
 import 'package:flutter/widgets.dart';
+import 'package:job_status_found/features/localization/i18n/auth_strings.dart';
 import 'package:job_status_found/features/localization/i18n/health_strings.dart';
 import 'package:job_status_found/features/localization/i18n/home_strings.dart';
 
@@ -17,6 +18,15 @@ sealed class const AppStrings() {
   /// The app name shown by the operating system.
   String get appTitle;
 
+  /// Short wordmark shown inside the app.
+  String get appWordmark;
+
+  /// Accessible progress copy shown during session restoration.
+  String get restoringSession;
+
+  /// Text shown by authentication pages.
+  AuthStrings get auth;
+
   /// Text shown by the backend health status view.
   HealthStrings get health;
 
@@ -31,6 +41,15 @@ final class const EnAppStrings() extends AppStrings {
 
   @override
   String get appTitle => 'Job Status Found';
+
+  @override
+  String get appWordmark => 'JSV';
+
+  @override
+  String get restoringSession => 'Restoring session';
+
+  @override
+  AuthStrings get auth => const EnAuthStrings();
 
   @override
   HealthStrings get health => const EnHealthStrings();

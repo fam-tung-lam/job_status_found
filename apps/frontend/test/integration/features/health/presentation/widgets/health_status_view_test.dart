@@ -82,6 +82,8 @@ void main() {
           _healthUrl,
           statusCode: 500,
           body: {'detail': 'boom'},
+          code: null,
+          retryAfterSeconds: null,
         ),
       );
 

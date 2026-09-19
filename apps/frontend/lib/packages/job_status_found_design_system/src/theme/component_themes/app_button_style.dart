@@ -48,6 +48,9 @@ enum AppButtonSize() {
 
   /// 40 pixels tall, for the single action of a page.
   xl,
+
+  /// 48 pixels tall, for a touch-friendly page action.
+  xxl,
 }
 
 /// The dimensions that one [AppButtonSize] fixes.
@@ -102,6 +105,13 @@ final class const _ButtonMetrics({
     ),
     AppButtonSize.xl => const _ButtonMetrics(
       height: AppSizes.controlXl,
+      horizontalPadding: 15,
+      labelStep: AppTypography.base,
+      iconSize: AppSizes.iconLg,
+      radius: AppRadii.lg,
+    ),
+    AppButtonSize.xxl => const _ButtonMetrics(
+      height: AppSizes.controlXxl,
       horizontalPadding: 15,
       labelStep: AppTypography.base,
       iconSize: AppSizes.iconLg,

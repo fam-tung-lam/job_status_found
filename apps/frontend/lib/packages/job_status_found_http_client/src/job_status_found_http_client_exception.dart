@@ -48,6 +48,12 @@ final class JobStatusFoundHttpClientBadResponse(
 
   /// The decoded response body, or `null` when the response had none.
   required final Object? body,
+
+  /// Stable RFC 9457 problem code, or `null` for an unknown body.
+  required final String? code,
+
+  /// Server-requested retry delay in seconds, or `null` when absent.
+  required final int? retryAfterSeconds,
 }) extends JobStatusFoundHttpClientException {
   /// Creates the exception for the [statusCode] and [body] returned by
   /// [requestUri].

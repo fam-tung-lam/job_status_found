@@ -146,7 +146,8 @@ class const _ButtonContent({
         AppButtonSize.sm => AppSpacing.xs + AppSpacing.xxs,
         AppButtonSize.md ||
         AppButtonSize.lg ||
-        AppButtonSize.xl => AppSpacing.sm,
+        AppButtonSize.xl ||
+        AppButtonSize.xxl => AppSpacing.sm,
       },
       children: [
         if (leadingIcon != null) Icon(leadingIcon),

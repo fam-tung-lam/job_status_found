@@ -2,23 +2,32 @@ import 'package:equatable/equatable.dart';
 
 /// The JSON body the backend returns from `GET /health`.
 final class const HealthStatusResponseDto({
-  /// The raw status word, which is `"ok"` in the current contract.
-  required final String status,
+  /// The backend status.
+  required final HealthStatusResponseValue status,
 }) extends Equatable {
   /// Creates the DTO from its wire fields.
   this;
 
   /// Decodes the wire body, such as `{"status": "ok"}`.
   ///
-  /// Throws [FormatException] when `status` is missing or not a string.
+  /// Throws [FormatException] when `status` is missing or unknown.
   factory fromJson(Map<String, Object?> json) {
     final status = json['status'];
-    if (status is! String) {
-      throw FormatException('Expected a string "status" in $json.');
+    if (status != HealthStatusResponseValue.ok.wireName) {
+      throw FormatException('Expected status "ok" in $json.');
     }
-    return HealthStatusResponseDto(status: status);
+    return const HealthStatusResponseDto(status: HealthStatusResponseValue.ok);
   }
 
   @override
   List<Object?> get props => [status];
+}
+
+/// Health status values supported by this app version.
+enum HealthStatusResponseValue(
+  /// The response value returned by the backend.
+  final String wireName,
+) {
+  /// The backend can serve requests.
+  ok('ok'),
 }

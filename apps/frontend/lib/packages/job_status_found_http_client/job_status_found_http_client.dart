@@ -7,3 +7,4 @@ library;
 export 'src/dio_job_status_found_http_client.dart';
 export 'src/job_status_found_http_client.dart';
 export 'src/job_status_found_http_client_exception.dart';
+export 'src/job_status_found_token_storage.dart';
